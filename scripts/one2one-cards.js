@@ -351,6 +351,7 @@ function renderCardHTML(cardDoc, context = "hand") {
         ${c.tags.counterTarget ? `<button type="button" class="o2o-btn o2o-btn-gm" data-action="apply-counter" data-card-id="${c.id}" data-stack-id="${c.parentId}" title="Usar contramedida contra ${escapeHtml(c.tags.counterTarget)}"><i class="fas fa-shield-halved"></i> Anular</button>` : ""}
       </div>
       <div style="display:flex; gap:4px;">
+        ${game.user.isGM ? `<button type="button" class="o2o-btn" data-action="return-to-deck" data-card-id="${c.id}" data-stack-id="${c.parentId}" title="Retirar de la mesa y devolver a la Reserva del GM"><i class="fas fa-box-archive"></i> Reserva</button>` : ""}
         <button type="button" class="o2o-btn" data-action="share-chat" data-card-id="${c.id}" data-stack-id="${c.parentId}" title="Mostrar carta en el Chat"><i class="fas fa-comment-dots"></i></button>
         <button type="button" class="o2o-btn" data-action="inspect-card" data-card-id="${c.id}" data-stack-id="${c.parentId}" title="Ver Imagen Original PDF + Traducción Completa"><i class="fas fa-magnifying-glass-plus"></i></button>
         ${game.user.isGM ? `<button type="button" class="o2o-btn" data-action="edit-card" data-card-id="${c.id}" data-stack-id="${c.parentId}" title="Editar carta"><i class="fas fa-pen"></i></button>` : ""}
@@ -595,10 +596,13 @@ function refreshGMDrawerModal() {
         <h3><i class="fas fa-briefcase" style="color:#f59e0b;"></i> Cajón del Director de Juego — GUMSHOE One-2-One (Never Say Dead)</h3>
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <button type="button" class="o2o-btn o2o-btn-gm" data-action="import-never-say-dead" title="Importar las 75 cartas oficiales de Never Say Dead (48 Problemas, 21 Ventajas y 6 Contactos) traducidas y con sus recortes originales">
-            <i class="fas fa-file-import"></i> Importar 75 Cartas: Never Say Dead
+            <i class="fas fa-file-import"></i> Importar 75 Cartas
+          </button>
+          <button type="button" class="o2o-btn" data-action="reset-all-to-deck" title="Devolver todas las cartas de la Mesa, Descartes y Continuidad a la Reserva del GM y reiniciar marcas">
+            <i class="fas fa-rotate-left"></i> Reiniciar Todo a Reserva
           </button>
           <button type="button" class="o2o-btn o2o-btn-success" data-action="open-card-editor">
-            <i class="fas fa-plus"></i> Crear / Subir Carta
+            <i class="fas fa-plus"></i> Crear Carta
           </button>
           <button type="button" class="o2o-btn" data-action="toggle-image-mode" title="Alternar entre Tarjeta en Español (CSS) y Carta Recortada Original (PDF)">
             <i class="fas ${One2OneState.forceOriginalImageView ? "fa-language" : "fa-image"}"></i>
@@ -1449,6 +1453,37 @@ function showCardToast(data) {
   setTimeout(() => toast.remove(), 4200);
 }
 
+/** Reinicia toda la partida: devuelve todas las cartas de Mesa, Descartes y Continuidad a la Reserva del GM y pone sus marcas a 0 */
+async function resetAllCardsToDeck() {
+  if (!game.user.isGM) return;
+  const stacks = await ensureCardStacks();
+  if (!stacks.deck) return;
+
+  let movedCount = 0;
+  for (const sourceStack of [stacks.hand, stacks.discard, stacks.continuity]) {
+    if (!sourceStack || sourceStack.cards.size === 0) continue;
+    const docs = Array.from(sourceStack.cards.values());
+    const toCreate = docs.map(d => {
+      const obj = d.toObject();
+      delete obj._id;
+      obj.drawn = false;
+      if (obj.flags?.[MODULE_ID]?.ticks) {
+        obj.flags[MODULE_ID].ticks.current = 0;
+      }
+      return obj;
+    });
+    const idsToDelete = docs.map(d => d.id);
+    await stacks.deck.createEmbeddedDocuments("Card", toCreate);
+    await sourceStack.deleteEmbeddedDocuments("Card", idsToDelete);
+    movedCount += docs.length;
+  }
+
+  // Asegurar también que no falte ninguna de las 75 cartas oficiales
+  await importNeverSayDeadPack();
+  One2OneState.gmActiveTab = "deck";
+  ui.notifications.info(`Reinicio completado: ${movedCount} cartas devueltas a la Reserva del GM y marcas reiniciadas.`);
+}
+
 async function runEndOfOperationWizard() {
   if (!game.user.isGM) return;
   const stacks = await ensureCardStacks();
@@ -1692,6 +1727,11 @@ async function onContainerActionClick(ev) {
     }
     case "import-never-say-dead": {
       await importNeverSayDeadPack();
+      refreshGMDrawerModal();
+      break;
+    }
+    case "reset-all-to-deck": {
+      await resetAllCardsToDeck();
       refreshGMDrawerModal();
       break;
     }
