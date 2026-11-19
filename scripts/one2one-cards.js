@@ -34,6 +34,7 @@ const CARD_CATEGORIES = {
    ESTADO GLOBAL DEL MÓDULO
    ========================================================================== */
 const One2OneState = {
+  dockHidden: false,
   dockMinimized: false,
   dockExpandedView: true,
   forceOriginalImageView: false, // Permite alternar al vuelo entre CSS en Español y Recorte Original del PDF
@@ -457,6 +458,7 @@ function renderTabletopDock() {
     dockEl.addEventListener("click", onContainerActionClick);
   }
 
+  dockEl.classList.toggle("is-hidden", One2OneState.dockHidden);
   dockEl.classList.toggle("is-minimized", One2OneState.dockMinimized);
   dockEl.classList.toggle("view-expanded", One2OneState.dockExpandedView);
 
@@ -466,6 +468,28 @@ function renderTabletopDock() {
   const contactsCount = cards.filter(c => getCardData(c).cardType === "contact").length;
   const problems = cards.filter(c => getCardData(c).cardType === "problem");
   const doomCount = problems.filter(c => getCardData(c).tags.doom).length;
+
+  // Botón flotante discreto en la esquina inferior izquierda cuando la barra principal está oculta
+  let launcherEl = document.getElementById("one2one-toolbar-launcher");
+  if (!launcherEl) {
+    launcherEl = document.createElement("div");
+    launcherEl.id = "one2one-toolbar-launcher";
+    document.body.appendChild(launcherEl);
+    launcherEl.addEventListener("click", onContainerActionClick);
+  }
+  if (One2OneState.dockHidden) {
+    launcherEl.style.display = "flex";
+    launcherEl.innerHTML = `
+      <button type="button" class="o2o-launcher-btn" data-action="show-dock" title="Abrir Mesa GUMSHOE One-2-One (También disponible en el icono de la barra de herramientas izquierda)">
+        <i class="fas fa-layer-group"></i>
+        <span>Mesa 1-2-1</span>
+        <span class="o2o-pill-count edge" style="padding:1px 6px;">${edgesAndContacts.length}</span>
+        <span class="o2o-pill-count problem" style="padding:1px 6px;">${problems.length}</span>
+      </button>
+    `;
+  } else {
+    launcherEl.style.display = "none";
+  }
 
   dockEl.innerHTML = `
     <header class="o2o-dock-header">
@@ -511,8 +535,11 @@ function renderTabletopDock() {
         <button type="button" class="o2o-btn" data-action="open-guide-journal" title="Abrir Diario con la Guía de Uso y Prueba paso a paso">
           <i class="fas fa-book-open"></i> Guía
         </button>
-        <button type="button" class="o2o-btn" data-action="toggle-dock-minimize" title="Minimizar / Mostrar bandeja de cartas">
+        <button type="button" class="o2o-btn" data-action="toggle-dock-minimize" title="Minimizar / Expandir bandeja de cartas">
           <i class="fas ${One2OneState.dockMinimized ? "fa-chevron-up" : "fa-chevron-down"}"></i>
+        </button>
+        <button type="button" class="o2o-btn" data-action="hide-dock" title="Ocultar barra de mesa (puedes volver a abrirla desde el icono de la barra de herramientas izquierda)">
+          <i class="fas fa-times"></i>
         </button>
       </div>
     </header>
@@ -1711,6 +1738,20 @@ async function onContainerActionClick(ev) {
   };
 
   switch (action) {
+    case "hide-dock": {
+      One2OneState.dockHidden = true;
+      await game.settings.set(MODULE_ID, "dockHidden", true);
+      renderTabletopDock();
+      break;
+    }
+    case "show-dock": {
+      One2OneState.dockHidden = false;
+      One2OneState.dockMinimized = false;
+      await game.settings.set(MODULE_ID, "dockHidden", false);
+      await game.settings.set(MODULE_ID, "dockMinimized", false);
+      renderTabletopDock();
+      break;
+    }
     case "toggle-dock-minimize": {
       One2OneState.dockMinimized = !One2OneState.dockMinimized;
       await game.settings.set(MODULE_ID, "dockMinimized", One2OneState.dockMinimized);
@@ -1950,6 +1991,14 @@ Hooks.once("init", () => {
     default: false
   });
 
+  game.settings.register(MODULE_ID, "dockHidden", {
+    name: "Bandeja de Mesa Oculta",
+    scope: "client",
+    config: false,
+    type: Boolean,
+    default: false
+  });
+
   game.settings.register(MODULE_ID, "gmSortMode", {
     name: "Cajón GM: Orden de las Cartas",
     scope: "client",
@@ -1960,8 +2009,9 @@ Hooks.once("init", () => {
 
   window.GumshoeOne2One = {
     toggleDock: async () => {
-      One2OneState.dockMinimized = !One2OneState.dockMinimized;
-      await game.settings.set(MODULE_ID, "dockMinimized", One2OneState.dockMinimized);
+      One2OneState.dockHidden = !One2OneState.dockHidden;
+      if (!One2OneState.dockHidden) One2OneState.dockMinimized = false;
+      await game.settings.set(MODULE_ID, "dockHidden", One2OneState.dockHidden);
       renderTabletopDock();
     },
     openGMDrawer: () => openGMDrawerModal(),
@@ -1976,6 +2026,7 @@ Hooks.once("ready", async () => {
   One2OneState.forceOriginalImageView = Boolean(game.settings.get(MODULE_ID, "forceOriginalImageView"));
   One2OneState.dockExpandedView = Boolean(game.settings.get(MODULE_ID, "dockExpandedView"));
   One2OneState.dockMinimized = Boolean(game.settings.get(MODULE_ID, "dockMinimized"));
+  One2OneState.dockHidden = Boolean(game.settings.get(MODULE_ID, "dockHidden"));
   One2OneState.gmSortMode = game.settings.get(MODULE_ID, "gmSortMode") || "alpha_es";
 
   const stacks = await ensureCardStacks();
@@ -2007,37 +2058,59 @@ for (const hookName of ["createCard", "updateCard", "deleteCard", "createCards",
 }
 
 Hooks.on("getSceneControlButtons", (controls) => {
-  const tokenTool = {
-    name: "gumshoe-one2one-dock",
-    title: "GUMSHOE One-2-One: Bandeja de Cartas / Cajón GM",
-    icon: "fas fa-layer-group",
-    button: true,
-    onClick: () => {
-      if (game.user.isGM && !One2OneState.dockMinimized) {
-        openGMDrawerModal();
-      } else {
-        One2OneState.dockMinimized = false;
-        renderTabletopDock();
-      }
+  const toggleDockAction = async () => {
+    One2OneState.dockHidden = !One2OneState.dockHidden;
+    if (!One2OneState.dockHidden) {
+      One2OneState.dockMinimized = false;
+      await game.settings.set(MODULE_ID, "dockMinimized", false);
     }
+    await game.settings.set(MODULE_ID, "dockHidden", One2OneState.dockHidden);
+    renderTabletopDock();
+  };
+
+  const dockTool = {
+    name: "gumshoe-one2one-dock",
+    title: "GUMSHOE One-2-One: Mostrar / Ocultar Mesa de Cartas",
+    icon: "fas fa-layer-group",
+    visible: true,
+    button: true,
+    onClick: toggleDockAction,
+    onChange: toggleDockAction
+  };
+
+  const gmTool = {
+    name: "gumshoe-one2one-gm",
+    title: "GUMSHOE One-2-One: Abrir Cajón del GM",
+    icon: "fas fa-briefcase",
+    visible: game.user?.isGM,
+    button: true,
+    onClick: () => openGMDrawerModal(),
+    onChange: () => openGMDrawerModal()
   };
 
   if (Array.isArray(controls)) {
     const tokenControl = controls.find(c => c.name === "token");
     if (tokenControl && Array.isArray(tokenControl.tools)) {
-      tokenControl.tools.push(tokenTool);
+      tokenControl.tools.push(dockTool);
+      if (game.user?.isGM) tokenControl.tools.push(gmTool);
     }
   } else if (controls && typeof controls === "object") {
     const tokenControl = controls.tokens || controls.token;
     if (tokenControl?.tools) {
       if (Array.isArray(tokenControl.tools)) {
-        tokenControl.tools.push(tokenTool);
+        tokenControl.tools.push(dockTool);
+        if (game.user?.isGM) tokenControl.tools.push(gmTool);
       } else {
         tokenControl.tools["gumshoe-one2one-dock"] = {
-          ...tokenTool,
-          order: 99,
-          onChange: tokenTool.onClick
+          ...dockTool,
+          order: 98
         };
+        if (game.user?.isGM) {
+          tokenControl.tools["gumshoe-one2one-gm"] = {
+            ...gmTool,
+            order: 99
+          };
+        }
       }
     }
   }

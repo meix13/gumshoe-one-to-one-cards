@@ -58,6 +58,51 @@
   display: none;
 }
 
+#one2one-tabletop-dock.is-hidden {
+  display: none !important;
+}
+
+/* Botón fijo en la barra de herramientas izquierda para mostrar/ocultar la Mesa One-2-One */
+#one2one-toolbar-launcher {
+  position: fixed;
+  left: 12px;
+  bottom: 14px;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.o2o-launcher-btn {
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid #38bdf8;
+  background: linear-gradient(135deg, #161d2a 0%, #0f131c 100%);
+  color: #f1f5f9;
+  font-family: "Signika", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.7);
+  transition: all 0.15s ease;
+}
+
+.o2o-launcher-btn:hover {
+  background: #1e293b;
+  border-color: #7dd3fc;
+  color: #fff;
+  transform: translateY(-1px);
+}
+
+.o2o-launcher-btn i {
+  color: #38bdf8;
+  font-size: 14px;
+}
+
 /* Cabecera del Dock */
 .o2o-dock-header {
   display: flex;
