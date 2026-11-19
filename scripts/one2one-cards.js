@@ -2136,7 +2136,19 @@ function getActiveAgentActorSync() {
 
 async function ensureLeylaKhanActor() {
   let actor = getActiveAgentActorSync();
-  if (actor) return actor;
+  const sheetClassId = `${MODULE_ID}.GumshoeOne2OneActorSheet`;
+
+  if (actor) {
+    if (game.user.isGM && actor.getFlag("core", "sheetClass") !== sheetClassId) {
+      await actor.update({
+        "flags.core.sheetClass": sheetClassId,
+        [`flags.${MODULE_ID}.isOne2OneAgent`]: true,
+        [`flags.${MODULE_ID}.isLeylaKhan`]: true
+      });
+      actor._sheet = null;
+    }
+    return actor;
+  }
 
   if (!game.user.isGM) {
     // Solicitar creación al GM por socket si está conectado
@@ -2145,11 +2157,12 @@ async function ensureLeylaKhanActor() {
   }
 
   // Detectar un tipo de Actor válido en cualquier sistema instalado en Foundry VTT
-  const docTypes = game.documentTypes?.Actor || Object.keys(CONFIG.Actor?.dataModels || {}) || Actor.TYPES || ["character"];
+  const dataModelTypes = Object.keys(CONFIG.Actor?.dataModels || {});
+  const docTypes = dataModelTypes.length ? dataModelTypes : (game.documentTypes?.Actor || Actor.TYPES || ["pc", "character"]);
   const validTypes = docTypes.filter(t => t !== "base");
-  const chosenType = validTypes.includes("character")
-    ? "character"
-    : (validTypes.includes("agent") ? "agent" : (validTypes.includes("pc") ? "pc" : (validTypes[0] || "character")));
+  const chosenType = validTypes.includes("pc")
+    ? "pc"
+    : (validTypes.includes("character") ? "character" : (validTypes.includes("agent") ? "agent" : (validTypes[0] || "pc")));
 
   const defaultData = buildDefaultLeylaAgentData();
 
@@ -2159,6 +2172,9 @@ async function ensureLeylaKhanActor() {
     img: LEYLA_PORTRAIT_PATH,
     ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
     flags: {
+      core: {
+        sheetClass: sheetClassId
+      },
       [MODULE_ID]: {
         isOne2OneAgent: true,
         isLeylaKhan: true,
@@ -2679,40 +2695,92 @@ function refreshAgentSheetViews(actorDoc = null) {
 }
 
 /** Registra la Ficha de Agente como Hoja de Personaje seleccionable en Foundry VTT (`Actors.registerSheet`) */
+let _one2OneSheetRegistered = false;
 function registerOne2OneActorSheet() {
+  if (_one2OneSheetRegistered) return;
   try {
-    const BaseActorSheet = foundry?.appv1?.sheets?.ActorSheet || window.ActorSheet;
     const ActorsCollection = foundry?.documents?.collections?.Actors || window.Actors;
-    if (!BaseActorSheet || !ActorsCollection?.registerSheet) return;
+    if (!ActorsCollection?.registerSheet) return;
 
-    class GumshoeOne2OneActorSheet extends BaseActorSheet {
-      static get defaultOptions() {
-        return foundry.utils.mergeObject(super.defaultOptions, {
+    const dataModelTypes = Object.keys(CONFIG.Actor?.dataModels || {});
+    const rawTypes = dataModelTypes.length ? dataModelTypes : (game.documentTypes?.Actor || Actor.TYPES || []);
+    const validTypes = rawTypes.filter(t => t && t !== "base");
+    if (validTypes.length === 0) return; // Esperar al hook 'setup' cuando el sistema haya registrado sus tipos
+
+    const ActorSheetV2Class = foundry?.applications?.sheets?.ActorSheetV2;
+    const BaseActorSheetV1 = foundry?.appv1?.sheets?.ActorSheet || window.ActorSheet;
+
+    if (ActorSheetV2Class) {
+      class GumshoeOne2OneActorSheet extends ActorSheetV2Class {
+        static DEFAULT_OPTIONS = {
           classes: ["o2o-actor-sheet-app"],
-          width: 1120,
-          height: 840,
-          resizable: true
-        });
+          position: {
+            width: 1160,
+            height: 860
+          },
+          window: {
+            resizable: true
+          }
+        };
+
+        get title() {
+          return `${this.document?.name || "Leyla Khan"} — GUMSHOE One-2-One (NBA: Solo Ops)`;
+        }
+
+        async _renderHTML(_context, _options) {
+          const wrapper = document.createElement("div");
+          wrapper.className = "o2o-native-actor-sheet-mount";
+          wrapper.dataset.actorId = this.document?.id || "";
+          wrapper.innerHTML = buildAgentSheetInnerHTML(this.document);
+          bindAgentSheetEvents(wrapper, this.document);
+          return wrapper;
+        }
+
+        _replaceHTML(result, content, _options) {
+          content.replaceChildren(result);
+        }
       }
 
-      get title() {
-        return `${this.actor?.name || "Leyla Khan"} — GUMSHOE One-2-One (NBA: Solo Ops)`;
+      ActorsCollection.registerSheet(MODULE_ID, GumshoeOne2OneActorSheet, {
+        types: validTypes,
+        label: "GUMSHOE One-2-One: Ficha de Agente (NBA: Solo Ops)",
+        makeDefault: false
+      });
+      _one2OneSheetRegistered = true;
+      console.log(`${MODULE_ID} | Hoja GumshoeOne2OneActorSheet (ApplicationV2) registrada para tipos:`, validTypes);
+    } else if (BaseActorSheetV1) {
+      class GumshoeOne2OneActorSheet extends BaseActorSheetV1 {
+        static get defaultOptions() {
+          return foundry.utils.mergeObject(super.defaultOptions, {
+            classes: ["o2o-actor-sheet-app"],
+            width: 1160,
+            height: 860,
+            resizable: true
+          });
+        }
+
+        get title() {
+          return `${this.actor?.name || "Leyla Khan"} — GUMSHOE One-2-One (NBA: Solo Ops)`;
+        }
+
+        async _renderInner() {
+          const wrapper = document.createElement("div");
+          wrapper.className = "o2o-native-actor-sheet-mount";
+          wrapper.dataset.actorId = this.actor?.id || "";
+          wrapper.innerHTML = buildAgentSheetInnerHTML(this.actor);
+          bindAgentSheetEvents(wrapper, this.actor);
+          return window.jQuery ? window.jQuery(wrapper) : wrapper;
+        }
       }
 
-      async _renderInner() {
-        const wrapper = document.createElement("div");
-        wrapper.className = "o2o-native-actor-sheet-mount";
-        wrapper.dataset.actorId = this.actor?.id || "";
-        wrapper.innerHTML = buildAgentSheetInnerHTML(this.actor);
-        bindAgentSheetEvents(wrapper, this.actor);
-        return window.jQuery ? window.jQuery(wrapper) : wrapper;
-      }
+      ActorsCollection.registerSheet(MODULE_ID, GumshoeOne2OneActorSheet, {
+        types: validTypes,
+        label: "GUMSHOE One-2-One: Ficha de Agente (NBA: Solo Ops)",
+        makeDefault: false
+      });
+      _one2OneSheetRegistered = true;
+      console.log(`${MODULE_ID} | Hoja GumshoeOne2OneActorSheet (AppV1) registrada para tipos:`, validTypes);
     }
-
-    ActorsCollection.registerSheet(MODULE_ID, GumshoeOne2OneActorSheet, {
-      label: "GUMSHOE One-2-One: Ficha de Agente (NBA: Solo Ops)",
-      makeDefault: false
-    });
   } catch (err) {
     console.warn(`${MODULE_ID} | Aviso al registrar ActorSheet adicional:`, err);
   }
@@ -2792,7 +2860,12 @@ Hooks.once("init", () => {
   };
 });
 
+Hooks.once("setup", () => {
+  registerOne2OneActorSheet();
+});
+
 Hooks.once("ready", async () => {
+  registerOne2OneActorSheet();
   // Cargar preferencias visuales guardadas del usuario
   One2OneState.forceOriginalImageView = Boolean(game.settings.get(MODULE_ID, "forceOriginalImageView"));
   One2OneState.dockExpandedView = Boolean(game.settings.get(MODULE_ID, "dockExpandedView"));
