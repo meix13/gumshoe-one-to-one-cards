@@ -55,28 +55,47 @@ Este documento contiene un guion paso a paso de **10 minutos** ambientado en el 
 
 ---
 
-## 🎲 Escena 3: Huida y Reto Táctico Dado a Dado (Lanzador de Retos + Penalizadores + Gastar Ventaja)
+## 🎲 Escena 3: Huida y Reto Táctico Dado a Dado (Cómo lanza o prepara un Reto el GM y el Jugador)
 
 *Vamos a probar un Reto aplicando penalizadores numéricos, penalizadores de dados y gasto de Ventajas a mitad de tirada.*
 
-1. **Como GM:** Abre el **`Cajón GM`**, busca y entrega a la mesa:
+### A. Preparación de cartas en mesa para el Reto
+1. **Como GM:** Abre el **`Cajón GM`**, busca (puedes usar el desplegable **`🔤 Orden: A–Z`** o **`🔢 Orden: Nº Oficial`**) y entrega a la mesa:
    * **`PROBLEM 12 — Conmocionada (Shaken)`** *(penalizador numérico **`-1`** a pruebas de Frialdad)*.
    * **`PROBLEM 24 — Capturada (Captured)`** *(penalizador de reserva **`-1d6`** a retos físicos o manuales)*.
    * **`EDGE 6 — Impulso (Momentum)`** *(Ventaja de un solo uso que otorga **`+1d6`**)*.
-2. **Como Jugador:** Pulsa el botón azul **`🎲 Lanzar Reto`** en la bandeja de mesa.
-   * En **Habilidad / Acción del Reto**, escribe: `Atletismo - Escapar de las ataduras`.
-   * En **Dados Base (d6)**, pon **`3`**.
-   * Fíjate en la sección roja **Problemas en Mesa que afectan a este Reto**: aparecen marcados automáticamente los problemas con penalizador. Deja marcados **`PROBLEM 24 — Capturada (-1d6)`** y **`PROBLEM 12 — Conmocionada (-1)`**.
-   * Comprueba cómo tu **Reserva Total** baja automáticamente de `3d6` a **`2d6`** (por el `-1d6` de *Capturada*) y tu **Modificador Numérico** marca **`-1`** (por *Conmocionada*).
-3. **Probar la Tirada Progresiva (Dado a Dado):**
-   * Pulsa **`Tirar Siguiente Dado (1d6)`**. Se lanza solo el primer dado (integrado con *Dice So Nice* si lo tienes activo) y ves la suma actual aplicando el `-1`.
-   * **Decisión táctica a mitad de tirada:** En la sección verde **Ventajas / Contactos en Mesa**, pulsa el botón **`⚡ Gastar (+1d6)`** junto a **`EDGE 6 — Impulso`**.
+
+### B. ¿Cómo hace o plantea el GM un Reto a mano? (Botón `🎲 Lanzar Reto` del GM)
+En la bandeja inferior del GM tienes el botón azul **`🎲 Lanzar Reto`**. Como Director de Juego puedes usarlo de **dos formas**:
+
+* **Modo 1 — El GM prepara el Reto a mano y se lo envía a la pantalla del Jugador:**
+  1. **Como GM:** Pulsa **`🎲 Lanzar Reto`** en tu bandeja inferior.
+  2. Escribe en **Habilidad / Acción del Reto** el nombre de la prueba que pide la aventura (ej. `Pelea (Fighting) - Guardias de Sinclair` o `Atletismo - Escapar de las ataduras`).
+  3. Configura los **Dados Base (d6)** del agente (ej. `3`) y cualquier **Mod. Manual** circunstancial.
+  4. Ajusta a mano los **Umbrales del Reto** según la dificultad que indique la escena en el libro:
+     * **ADVANCE (Avance):** por defecto `6+` (puedes subirlo a `7+` u `8+` para enemigos duros como Stokovitch).
+     * **HOLD (Mantener):** por defecto `4` a `5` (se ajusta automáticamente el rango hasta `Advance - 1`).
+     * **SETBACK (Revés):** se calcula automáticamente (`Hold - 1` o menos).
+  5. Marca o desmarca en la lista roja qué **Problemas en Mesa** penalizan específicamente a este Reto.
+  6. Pulsa el botón naranja **`📤 Enviar Reto Preparado al Jugador`** (abajo a la izquierda de la ventana): la ventana del Reto **se abrirá automáticamente en la pantalla del Jugador** con todos esos umbrales, título y penalizadores ya configurados para que el jugador tire los dados.
+
+* **Modo 2 — El GM lanza y resuelve el Reto él mismo a mano:**
+  1. **Como GM:** Abre **`🎲 Lanzar Reto`**, configura el nombre, dados base, umbrales y problemas que aplican.
+  2. Pulsa directamente **`Tirar Siguiente Dado (1d6)`** (para tirar dado a dado) o **`Tirar Todos los Restantes`** desde tu propia ventana de GM.
+  3. Si el jugador decide gastar una Ventaja o aceptar un Problema Extra, puedes pulsar **`⚡ Gastar (+1d6)`** o marcar **`Aceptar Problema Extra (+1d6)`** tú mismo en la ventana.
+  4. Pulsa **`Publicar Resultado del Reto en el Chat`** para que el resultado (`ADVANCE`, `HOLD` o `SETBACK`) quede registrado en el chat de la partida.
+
+### C. Probar la Tirada Progresiva (Dado a Dado) en el Lanzador
+1. Con la ventana del Reto abierta (ya sea enviada por el GM o abierta con **`🎲 Lanzar Reto`**):
+   * Teniendo marcados **`PROBLEM 24 — Capturada (-1d6)`** y **`PROBLEM 12 — Conmocionada (-1)`**, comprueba cómo la **Reserva Total** baja automáticamente de `3d6` a **`2d6`** y el **Modificador Numérico** marca **`-1`**.
+2. Pulsa **`Tirar Siguiente Dado (1d6)`**:
+   * Se lanza solo el primer dado (integrado con *Dice So Nice* si lo tienes activo) y ves la suma actual aplicando el `-1`.
+3. **Decisión táctica a mitad de tirada:** En la sección verde **Ventajas / Contactos en Mesa**, pulsa el botón **`⚡ Gastar (+1d6)`** junto a **`EDGE 6 — Impulso`**.
    * Comprueba que:
      1. La carta *Impulso* se consume automáticamente de la mesa y pasa a Descartes.
      2. Tu reserva de dados en el reto añade un dado extra (`+1d6`).
-   * **Regla de Push automático:** Si con los dados ya tirados alcanzas o superas `6` (*Advance*) y decides **dejar al menos 1 dado sin tirar**, el banner inferior se pondrá en verde indicando: **`ADVANCE + ¡GANAS 1 PUSH! (1 dado/s sin tirar)`**.
-   * También puedes probar a marcar la casilla **`Aceptar Problema Extra (+1d6)`** para sumar un dado más a cambio de que el GM te entregue un Problema al final de la escena.
-   * Pulsa **`Publicar Resultado del Reto en el Chat`** para enviar el desglose completo al chat de Foundry.
+4. **Regla de Push automático:** Si con los dados ya tirados alcanzas o superas el umbral de *Advance* y decides **dejar al menos 1 dado sin tirar**, el banner inferior se pondrá en verde indicando: **`ADVANCE + ¡GANAS 1 PUSH! (1 dado/s sin tirar)`**.
+5. Pulsa **`Publicar Resultado del Reto en el Chat`** para enviar el desglose completo al chat de Foundry.
 
 ---
 
@@ -109,6 +128,17 @@ Este documento contiene un guion paso a paso de **10 minutos** ambientado en el 
      * Lista las cartas archivadas en **Continuidad** (*Daños Colaterales* y *Agua Corriente*) que persisten para la siguiente operación.
      * Lista el resto de cartas movidas a **Descartes**.
    * Si en el **`Cajón GM`** haces clic en la pestaña **`Continuidad`**, verás ahí guardadas las cartas de continuidad listas para devolverlas a la mesa al comenzar la siguiente aventura.
+
+---
+
+## 🔄 Funciones de Gestión y Reinicio para el GM
+
+* **Retirar una carta bajada a la mesa por equivocación (`📦 Reserva`):**
+  En cualquier carta que esté activa en la **Mesa del Agente** (tanto en la bandeja inferior como en la pestaña *Mesa del Agente* del Cajón GM), el GM dispone del botón **`📦 Reserva`**. Al pulsarlo, la carta vuelve inmediatamente a la **Reserva del GM** sin pasar por Descartes ni enviar mensaje de resolución al chat.
+* **Reiniciar toda la partida de cero (`🔄 Reiniciar Todo a Reserva`):**
+  En la barra superior del **`Cajón GM`**, el botón **`🔄 Reiniciar Todo a Reserva`** devuelve todas las cartas de la *Mesa del Agente*, *Descartes* y *Continuidad* a la *Reserva del GM*, pone todos los contadores de marcas (`Ticks`) a `0` y restaura cualquier carta oficial de *Never Say Dead* que se hubiera eliminado.
+* **Ordenación automática persistente (`🔤 Orden: A–Z` / `🔢 Nº Oficial`):**
+  En el **`Cajón GM`** puedes elegir si ver las cartas ordenadas alfabéticamente por su título en español (`A–Z`), por su numeración oficial del libro (`PROBLEM 1, 2... / EDGE 1... / CONTACT 1...`) o alfabéticamente en inglés. Tanto el orden elegido como el modo visual (`Ver Carta PDF` / `Ver Español CSS`) quedan guardados automáticamente para futuras sesiones.
 
 ---
 

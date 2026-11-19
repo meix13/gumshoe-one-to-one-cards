@@ -1070,21 +1070,23 @@ function openCardInspectorModal(cardDoc) {
 /* ==========================================================================
    5. LANZADOR TÁCTICO DE RETOS (CHALLENGE ROLLER: ADVANCE / HOLD / SETBACK)
    ========================================================================== */
-function openChallengeRollerModal() {
+function openChallengeRollerModal(preset = null) {
   const stacks = getStacksSync();
   const handCards = stacks.hand ? Array.from(stacks.hand.cards.values()).map(getCardData) : [];
   const activeProblems = handCards.filter(c => c.cardType === "problem");
 
   One2OneState.activeChallenge = {
-    skillName: "Reto General",
-    baseDice: 2,
+    skillName: preset?.skillName || "Reto General",
+    baseDice: Number(preset?.baseDice ?? 2),
     bonusDiceFromEdges: 0,
     extraProblemAccepted: false,
     spentEdgeNames: [],
-    advanceThreshold: 6,
-    holdThreshold: 4,
-    selectedProblemIds: activeProblems.filter(p => p.effectiveModifier !== 0 || p.dicePenalty !== 0).map(p => p.id),
-    customModifier: 0,
+    advanceThreshold: Number(preset?.advanceThreshold ?? 6),
+    holdThreshold: Number(preset?.holdThreshold ?? 4),
+    selectedProblemIds: Array.isArray(preset?.selectedProblemIds)
+      ? preset.selectedProblemIds
+      : activeProblems.filter(p => p.effectiveModifier !== 0 || p.dicePenalty !== 0).map(p => p.id),
+    customModifier: Number(preset?.customModifier ?? 0),
     rolledValues: []
   };
 
@@ -1299,13 +1301,36 @@ function renderChallengeRollerContent() {
         ` : ""}
       </div>
 
-      <div class="o2o-modal-footer">
+      <div class="o2o-modal-footer" style="justify-content:space-between;">
+        <div>
+          ${game.user.isGM ? `
+            <button type="button" class="o2o-btn o2o-btn-gm" id="o2o-ch-send-player" title="Abre esta ventana de Reto directamente en la pantalla del Jugador con los umbrales y penalizadores que has configurado">
+              <i class="fas fa-share-from-square"></i> Enviar Reto Preparado al Jugador
+            </button>
+          ` : ""}
+        </div>
         <button type="button" class="o2o-btn o2o-btn-challenge" id="o2o-ch-publish-chat" ${st.rolledValues.length === 0 ? "disabled style='opacity:0.5;'" : ""}>
           <i class="fas fa-paper-plane"></i> Publicar Resultado del Reto en el Chat
         </button>
       </div>
     </div>
   `;
+
+  modal.querySelector("#o2o-ch-send-player")?.addEventListener("click", () => {
+    const payload = {
+      action: "openChallengeFromGM",
+      preset: {
+        skillName: st.skillName,
+        baseDice: st.baseDice,
+        advanceThreshold: st.advanceThreshold,
+        holdThreshold: st.holdThreshold,
+        selectedProblemIds: st.selectedProblemIds,
+        customModifier: st.customModifier
+      }
+    };
+    game.socket.emit(SOCKET_NAME, payload);
+    ui.notifications.info(`Reto "${st.skillName}" enviado a la pantalla del jugador.`);
+  });
 
   modal.querySelector("#o2o-challenge-close")?.addEventListener("click", () => modal.remove());
   modal.querySelector("#o2o-ch-skill")?.addEventListener("input", (e) => { st.skillName = e.target.value; });
@@ -1859,6 +1884,9 @@ Hooks.once("ready", async () => {
   game.socket.on(SOCKET_NAME, (data) => {
     if (data?.action === "cardDealtToast") {
       showCardToast(data);
+    } else if (data?.action === "openChallengeFromGM" && !game.user.isGM) {
+      openChallengeRollerModal(data.preset);
+      ui.notifications.info(`El GM te ha planteado un Reto: ${data.preset?.skillName || "Reto"}`);
     }
   });
 });
