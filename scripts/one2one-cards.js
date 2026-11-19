@@ -37,6 +37,7 @@ const One2OneState = {
   dockHidden: false,
   dockMinimized: false,
   dockExpandedView: true,
+  dockBounds: null, // { left, top, width, height } cuando se arrastra o redimensiona
   forceOriginalImageView: false, // Permite alternar al vuelo entre CSS en Español y Recorte Original del PDF
   gmActiveTab: "deck", // "deck" | "hand" | "discard" | "continuity"
   gmFilterType: "all", // "all" | "edge" | "problem" | "contact"
@@ -444,8 +445,100 @@ function renderCardHTML(cardDoc, context = "hand") {
 }
 
 /* ==========================================================================
-   1. TABLETOP DOCK (HUD PERSISTENTE EN MESA)
+   1. TABLETOP DOCK (HUD PERSISTENTE EN MESA — ARRASTRABLE Y REDIMENSIONABLE)
    ========================================================================== */
+function applyDockBounds(dockEl) {
+  if (!dockEl) return;
+  const b = One2OneState.dockBounds;
+  if (b && typeof b.left === "number" && typeof b.top === "number") {
+    dockEl.style.left = `${Math.max(0, Math.min(window.innerWidth - 180, b.left))}px`;
+    dockEl.style.top = `${Math.max(0, Math.min(window.innerHeight - 60, b.top))}px`;
+    dockEl.style.bottom = "auto";
+    dockEl.style.transform = "none";
+  } else {
+    dockEl.style.left = "50%";
+    dockEl.style.top = "auto";
+    dockEl.style.bottom = "12px";
+    dockEl.style.transform = "translateX(-50%)";
+  }
+
+  if (b && typeof b.width === "number" && b.width >= 480) {
+    dockEl.style.width = `${Math.min(window.innerWidth - 20, b.width)}px`;
+  } else {
+    dockEl.style.width = "";
+  }
+
+  if (!One2OneState.dockMinimized && b && typeof b.height === "number" && b.height >= 160) {
+    dockEl.style.height = `${Math.min(window.innerHeight - 20, b.height)}px`;
+  } else {
+    dockEl.style.height = "";
+  }
+}
+
+function attachDockDragAndResize(dockEl) {
+  if (!dockEl || dockEl.dataset.dragAttached === "true") return;
+  dockEl.dataset.dragAttached = "true";
+
+  let mode = null; // "drag" | "resize"
+  let startX = 0;
+  let startY = 0;
+  let startRect = null;
+
+  dockEl.addEventListener("mousedown", (ev) => {
+    const resizeHandle = ev.target.closest(".o2o-dock-resize-handle");
+    const headerEl = ev.target.closest(".o2o-dock-header");
+    const isInteractive = ev.target.closest("button, input, select, textarea, a");
+
+    if (resizeHandle) {
+      mode = "resize";
+    } else if (headerEl && !isInteractive) {
+      mode = "drag";
+    } else {
+      return;
+    }
+
+    ev.preventDefault();
+    startX = ev.clientX;
+    startY = ev.clientY;
+    startRect = dockEl.getBoundingClientRect();
+
+    // Fijar coordenadas explícitas al empezar a mover o redimensionar
+    One2OneState.dockBounds = {
+      left: startRect.left,
+      top: startRect.top,
+      width: startRect.width,
+      height: startRect.height
+    };
+    applyDockBounds(dockEl);
+
+    const onMouseMove = (moveEv) => {
+      if (!mode || !startRect) return;
+      const dx = moveEv.clientX - startX;
+      const dy = moveEv.clientY - startY;
+
+      if (mode === "drag") {
+        One2OneState.dockBounds.left = Math.max(0, Math.min(window.innerWidth - 180, startRect.left + dx));
+        One2OneState.dockBounds.top = Math.max(0, Math.min(window.innerHeight - 54, startRect.top + dy));
+      } else if (mode === "resize") {
+        One2OneState.dockBounds.width = Math.max(520, Math.min(window.innerWidth - startRect.left - 8, startRect.width + dx));
+        if (!One2OneState.dockMinimized) {
+          One2OneState.dockBounds.height = Math.max(180, Math.min(window.innerHeight - startRect.top - 8, startRect.height + dy));
+        }
+      }
+      applyDockBounds(dockEl);
+    };
+
+    const onMouseUp = () => {
+      mode = null;
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  });
+}
+
 function renderTabletopDock() {
   const stacks = getStacksSync();
   const hand = stacks.hand;
@@ -456,11 +549,13 @@ function renderTabletopDock() {
     dockEl.id = "one2one-tabletop-dock";
     document.body.appendChild(dockEl);
     dockEl.addEventListener("click", onContainerActionClick);
+    attachDockDragAndResize(dockEl);
   }
 
   dockEl.classList.toggle("is-hidden", One2OneState.dockHidden);
   dockEl.classList.toggle("is-minimized", One2OneState.dockMinimized);
   dockEl.classList.toggle("view-expanded", One2OneState.dockExpandedView);
+  applyDockBounds(dockEl);
 
   const cards = hand ? Array.from(hand.cards.values()) : [];
   const edgesAndContacts = cards.filter(c => ["edge", "contact"].includes(getCardData(c).cardType));
@@ -492,8 +587,9 @@ function renderTabletopDock() {
   }
 
   dockEl.innerHTML = `
-    <header class="o2o-dock-header">
+    <header class="o2o-dock-header" title="Arrastra desde esta barra para mover el panel de cartas por la pantalla">
       <div class="o2o-dock-brand">
+        <i class="fas fa-grip-vertical" style="color:#64748b; cursor:move;"></i>
         <i class="fas fa-layer-group"></i>
         <span>Mesa GUMSHOE One-2-One</span>
         <div class="o2o-dock-counters">
@@ -513,13 +609,13 @@ function renderTabletopDock() {
       </div>
 
       <div class="o2o-dock-actions">
-        <button type="button" class="o2o-btn o2o-btn-agent" data-action="open-agent-sheet" title="Abrir Ficha Interactiva de Agente (Leyla Khan — NBA: Solo Ops)">
+        <button type="button" class="o2o-btn o2o-btn-agent" data-action="open-agent-sheet" title="Abrir Expediente / Ficha de Agente">
           <i class="fas fa-user-secret"></i> Ficha Agente
         </button>
-        <button type="button" class="o2o-btn o2o-btn-challenge" data-action="open-challenge-roller" title="Abrir lanzador táctico de Retos (Advance / Hold / Setback)">
-          <i class="fas fa-dice-d6"></i> Lanzar Reto
-        </button>
         ${game.user.isGM ? `
+          <button type="button" class="o2o-btn" data-action="create-new-agent" title="Crear una ficha nueva de Agente en blanco para rellenar a mano">
+            <i class="fas fa-user-plus"></i> + Agente
+          </button>
           <button type="button" class="o2o-btn o2o-btn-gm" data-action="open-gm-drawer" title="Abrir Cajón de Cartas del Director de Juego">
             <i class="fas fa-briefcase"></i> Cajón GM
           </button>
@@ -538,6 +634,11 @@ function renderTabletopDock() {
         <button type="button" class="o2o-btn" data-action="open-guide-journal" title="Abrir Diario con la Guía de Uso y Prueba paso a paso">
           <i class="fas fa-book-open"></i> Guía
         </button>
+        ${One2OneState.dockBounds ? `
+          <button type="button" class="o2o-btn" data-action="reset-dock-position" title="Restaurar posición y tamaño original del panel">
+            <i class="fas fa-arrows-to-dot"></i>
+          </button>
+        ` : ""}
         <button type="button" class="o2o-btn" data-action="toggle-dock-minimize" title="Minimizar / Expandir bandeja de cartas">
           <i class="fas ${One2OneState.dockMinimized ? "fa-chevron-up" : "fa-chevron-down"}"></i>
         </button>
@@ -555,7 +656,7 @@ function renderTabletopDock() {
         </div>
         ${edgesAndContacts.length > 0
           ? `<div class="o2o-cards-row">${edgesAndContacts.map(c => renderCardHTML(c, "hand")).join("")}</div>`
-          : `<div class="o2o-empty-table">Ninguna Ventaja ni Contacto en mesa. Consigue un <strong>Advance (6+)</strong> en un Reto para ganar una.</div>`
+          : `<div class="o2o-empty-table">Ninguna Ventaja ni Contacto en mesa.</div>`
         }
       </div>
 
@@ -570,6 +671,7 @@ function renderTabletopDock() {
         }
       </div>
     </div>
+    <div class="o2o-dock-resize-handle" title="Arrastra desde esta esquina para redimensionar el panel de cartas"></div>
   `;
 }
 
@@ -1980,13 +2082,23 @@ async function onContainerActionClick(ev) {
       await openAgentSheetModal();
       break;
     }
+    case "create-new-agent": {
+      await createNewCustomAgentActor();
+      break;
+    }
+    case "reset-dock-position": {
+      One2OneState.dockBounds = null;
+      renderTabletopDock();
+      break;
+    }
   }
 }
 
 /* ==========================================================================
-   7. FICHA INTERACTIVA DE AGENTE (LEYLA KHAN — NIGHT'S BLACK AGENTS: SOLO OPS)
+   7. EXPEDIENTE / FICHA DE AGENTE (GUMSHOE ONE-2-ONE — ESTILO DOSSIER EN PAPEL)
    ========================================================================== */
 const LEYLA_PORTRAIT_PATH = `modules/${MODULE_ID}/assets/actors/leyla-khan.jpg`;
+const DEFAULT_AGENT_PORTRAIT_PATH = "icons/svg/mystery-man.svg";
 
 /** 38 Habilidades Oficiales de Investigación (organizadas en las 3 columnas exactas del PDF A4) */
 const INVESTIGATIVE_ABILITIES_DEF = [
@@ -2035,7 +2147,7 @@ const INVESTIGATIVE_ABILITIES_DEF = [
   { id: "vampirology", col: 3, cat: "A", en: "Vampirology", es: "Vampirología", leylaDefault: false }
 ];
 
-/** 16 Habilidades Generales Oficiales (con STUNT USE y 2d6 por defecto como en el PDF) */
+/** 16 Habilidades Generales Oficiales */
 const GENERAL_ABILITIES_DEF = [
   { id: "athletics", en: "Athletics", es: "Atletismo", defaultDice: 2 },
   { id: "conceal", en: "Conceal", es: "Ocultar", defaultDice: 2 },
@@ -2055,17 +2167,18 @@ const GENERAL_ABILITIES_DEF = [
   { id: "surveillance", en: "Surveillance", es: "Vigilancia", defaultDice: 2 }
 ];
 
-function buildDefaultLeylaAgentData() {
+/** Datos en blanco para cualquier nueva ficha de Agente creada por el GM */
+function buildBlankAgentData(agentName = "NUEVO AGENTE") {
   const investigative = {};
   for (const ab of INVESTIGATIVE_ABILITIES_DEF) {
-    investigative[ab.id] = Boolean(ab.leylaDefault);
+    investigative[ab.id] = false;
   }
   const general = {};
   for (const g of GENERAL_ABILITIES_DEF) {
-    general[g.id] = { dice: g.defaultDice, stunt: false };
+    general[g.id] = { dice: 2, stunt: false, secondDieSpent: false };
   }
   return {
-    agentName: "LEYLA KHAN",
+    agentName,
     pushes: 2,
     contactsNotes: "",
     notes: "",
@@ -2079,8 +2192,24 @@ function buildDefaultLeylaAgentData() {
   };
 }
 
+/** Datos preconfigurados de Leyla Khan (se crea al instalar/iniciar el módulo como ficha de ejemplo lista para jugar) */
+function buildDefaultLeylaAgentData() {
+  const base = buildBlankAgentData("LEYLA KHAN");
+  for (const ab of INVESTIGATIVE_ABILITIES_DEF) {
+    base.investigative[ab.id] = Boolean(ab.leylaDefault);
+  }
+  return base;
+}
+
 function getAgentDataFromActor(actorDoc) {
-  const defaults = buildDefaultLeylaAgentData();
+  const isLeyla = Boolean(
+    actorDoc?.getFlag(MODULE_ID, "isLeylaKhan") ||
+    actorDoc?.name?.toLowerCase().includes("leyla khan")
+  );
+  const defaults = isLeyla
+    ? buildDefaultLeylaAgentData()
+    : buildBlankAgentData(actorDoc?.name || "AGENTE");
+
   if (!actorDoc) return defaults;
   const saved = actorDoc.flags?.[MODULE_ID]?.agentData || {};
 
@@ -2089,8 +2218,9 @@ function getAgentDataFromActor(actorDoc) {
   for (const g of GENERAL_ABILITIES_DEF) {
     const sg = saved.general?.[g.id] || {};
     general[g.id] = {
-      dice: Math.clamp(Number(sg.dice ?? g.defaultDice), 1, 6),
-      stunt: Boolean(sg.stunt)
+      dice: 2,
+      stunt: Boolean(sg.stunt),
+      secondDieSpent: Boolean(sg.secondDieSpent)
     };
   }
 
@@ -2124,18 +2254,38 @@ async function updateAgentDataOnActor(actorDoc, partialData) {
   await actorDoc.update(updatePayload);
 }
 
-function getActiveAgentActorSync() {
-  if (!game.actors) return null;
-  return (
-    game.actors.find(a => a.getFlag(MODULE_ID, "isLeylaKhan") === true) ||
-    game.actors.find(a => a.getFlag(MODULE_ID, "isOne2OneAgent") === true) ||
-    game.actors.find(a => a.name.toLowerCase().includes("leyla khan")) ||
-    null
+function getAllOne2OneAgentActorsSync() {
+  if (!game.actors) return [];
+  const sheetClassId = `${MODULE_ID}.GumshoeOne2OneActorSheet`;
+  return game.actors.filter(a =>
+    a.getFlag(MODULE_ID, "isOne2OneAgent") === true ||
+    a.getFlag(MODULE_ID, "isLeylaKhan") === true ||
+    a.getFlag("core", "sheetClass") === sheetClassId ||
+    a.name.toLowerCase().includes("leyla khan")
   );
 }
 
+function getActiveAgentActorSync() {
+  if (!game.actors) return null;
+  if (game.user?.character) return game.user.character;
+  const allAgents = getAllOne2OneAgentActorsSync();
+  return allAgents[0] || null;
+}
+
+function getValidSystemActorType() {
+  const dataModelTypes = Object.keys(CONFIG.Actor?.dataModels || {});
+  const docTypes = dataModelTypes.length ? dataModelTypes : (game.documentTypes?.Actor || Actor.TYPES || ["pc", "character"]);
+  const validTypes = docTypes.filter(t => t !== "base");
+  return validTypes.includes("pc")
+    ? "pc"
+    : (validTypes.includes("character") ? "character" : (validTypes.includes("agent") ? "agent" : (validTypes[0] || "pc")));
+}
+
 async function ensureLeylaKhanActor() {
-  let actor = getActiveAgentActorSync();
+  let actor = game.actors?.find(a =>
+    a.getFlag(MODULE_ID, "isLeylaKhan") === true ||
+    a.name.toLowerCase().includes("leyla khan")
+  ) || null;
   const sheetClassId = `${MODULE_ID}.GumshoeOne2OneActorSheet`;
 
   if (actor) {
@@ -2151,19 +2301,11 @@ async function ensureLeylaKhanActor() {
   }
 
   if (!game.user.isGM) {
-    // Solicitar creación al GM por socket si está conectado
     game.socket.emit(SOCKET_NAME, { action: "requestCreateLeylaActor" });
     return null;
   }
 
-  // Detectar un tipo de Actor válido en cualquier sistema instalado en Foundry VTT
-  const dataModelTypes = Object.keys(CONFIG.Actor?.dataModels || {});
-  const docTypes = dataModelTypes.length ? dataModelTypes : (game.documentTypes?.Actor || Actor.TYPES || ["pc", "character"]);
-  const validTypes = docTypes.filter(t => t !== "base");
-  const chosenType = validTypes.includes("pc")
-    ? "pc"
-    : (validTypes.includes("character") ? "character" : (validTypes.includes("agent") ? "agent" : (validTypes[0] || "pc")));
-
+  const chosenType = getValidSystemActorType();
   const defaultData = buildDefaultLeylaAgentData();
 
   actor = await Actor.create({
@@ -2183,14 +2325,51 @@ async function ensureLeylaKhanActor() {
     }
   });
 
-  ui.notifications.info("Actor 'Leyla Khan' creado automáticamente con su ficha oficial de Night's Black Agents: Solo Ops.");
+  ui.notifications.info("Actor 'Leyla Khan' creado automáticamente como ficha de ejemplo.");
   return actor;
 }
 
-/** Construye el HTML interior de la Ficha de Agente (válido tanto para Modal como para ActorSheet nativo) */
+/** Permite al GM crear un nuevo Actor con la ficha One-2-One en blanco para elegir sus habilidades a mano */
+async function createNewCustomAgentActor() {
+  if (!game.user.isGM) {
+    ui.notifications.warn("Solo el Director de Juego (GM) puede crear nuevas fichas de Agente.");
+    return null;
+  }
+  const sheetClassId = `${MODULE_ID}.GumshoeOne2OneActorSheet`;
+  const chosenType = getValidSystemActorType();
+  const count = getAllOne2OneAgentActorsSync().length + 1;
+  const newName = `Nuevo Agente #${count}`;
+  const blankData = buildBlankAgentData(newName);
+
+  const actor = await Actor.create({
+    name: newName,
+    type: chosenType,
+    img: DEFAULT_AGENT_PORTRAIT_PATH,
+    ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
+    flags: {
+      core: {
+        sheetClass: sheetClassId
+      },
+      [MODULE_ID]: {
+        isOne2OneAgent: true,
+        isLeylaKhan: false,
+        agentData: blankData
+      }
+    }
+  });
+
+  ui.notifications.info(`Ficha en blanco "${newName}" creada. Marca sus habilidades de investigación y edita su nombre y retrato.`);
+  if (actor) {
+    await openAgentSheetModal(actor);
+  }
+  return actor;
+}
+
+/** Construye el HTML interior de la Ficha de Agente con estética de Dossier en Papel Marrón y Máquina de Escribir */
 function buildAgentSheetInnerHTML(actorDoc) {
   const data = getAgentDataFromActor(actorDoc);
-  const portraitSrc = actorDoc?.img || LEYLA_PORTRAIT_PATH;
+  const portraitSrc = actorDoc?.img || (actorDoc?.getFlag(MODULE_ID, "isLeylaKhan") ? LEYLA_PORTRAIT_PATH : DEFAULT_AGENT_PORTRAIT_PATH);
+  const allAgents = getAllOne2OneAgentActorsSync();
 
   // Cartas activas en la Mesa del Agente para sincronizar Contactos, bloqueos y Trackers
   const stacks = getStacksSync();
@@ -2210,6 +2389,7 @@ function buildAgentSheetInnerHTML(actorDoc) {
   );
 
   const checkedInvCount = Object.values(data.investigative).filter(Boolean).length;
+  const spentSecondDiceCount = Object.values(data.general).filter(g => g.secondDieSpent).length;
 
   const renderInvColumn = (colNum) => {
     const items = INVESTIGATIVE_ABILITIES_DEF.filter(ab => ab.col === colNum);
@@ -2227,11 +2407,11 @@ function buildAgentSheetInnerHTML(actorDoc) {
             </span>
           </label>
           <div class="o2o-inv-actions">
-            <button type="button" class="o2o-mini-btn" data-sheet-action="use-inv-clue" data-inv-id="${ab.id}" title="Investigar / Obtener Pista en el Chat">
+            <button type="button" class="o2o-mini-btn" data-sheet-action="use-inv-clue" data-inv-id="${ab.id}" title="Investigar / Anunciar Pista en el Chat">
               <i class="fas fa-magnifying-glass"></i>
             </button>
             <button type="button" class="o2o-mini-btn push-btn" data-sheet-action="push-inv-ability" data-inv-id="${ab.id}" title="Gastar 1 Push con esta habilidad y anunciarlo en el Chat">
-              ⚡ Push
+              Push
             </button>
           </div>
         </div>
@@ -2241,39 +2421,40 @@ function buildAgentSheetInnerHTML(actorDoc) {
 
   const renderGeneralAbilities = () => {
     return GENERAL_ABILITIES_DEF.map(g => {
-      const gState = data.general[g.id] || { dice: 2, stunt: false };
+      const gState = data.general[g.id] || { dice: 2, stunt: false, secondDieSpent: false };
+      const isSpent = Boolean(gState.secondDieSpent);
       const isBlockedByProb2 = hasRunningOnEmpty && (g.id === "preparedness" || g.id === "shooting");
-      let diceIcons = "";
-      for (let i = 0; i < gState.dice; i++) {
-        diceIcons += `<i class="fas fa-dice-${i % 2 === 0 ? "one" : "two"}"></i>`;
-      }
+
       return `
-        <div class="o2o-gen-row ${isBlockedByProb2 ? "is-blocked" : ""}" data-gen-id="${g.id}">
+        <div class="o2o-gen-row ${isBlockedByProb2 ? "is-blocked" : ""} ${isSpent ? "is-second-spent" : ""}" data-gen-id="${g.id}">
           <label class="o2o-stunt-cell" title="STUNT USE (Uso de Maniobra Especial)">
             <input type="checkbox" class="o2o-gen-stunt" data-gen-id="${g.id}" ${gState.stunt ? "checked" : ""} />
           </label>
-          <div class="o2o-gen-dice-cell" title="Dados base de la habilidad (por defecto 2d6)">
-            <span class="o2o-dice-glyphs">${diceIcons}</span>
-            <select class="o2o-gen-dice-select" data-gen-id="${g.id}">
-              ${[1, 2, 3, 4].map(n => `<option value="${n}" ${gState.dice === n ? "selected" : ""}>${n}d6</option>`).join("")}
-            </select>
-          </div>
-          <div class="o2o-gen-name-cell" data-sheet-action="roll-general-challenge" data-gen-id="${g.id}" title="Haz clic para abrir el Lanzador Táctico de Retos con ${escapeHtml(g.es)} (${gState.dice}d6)">
+          <div class="o2o-gen-name-cell">
             <div>
               <strong>${escapeHtml(g.es)}</strong>
               <small>${escapeHtml(g.en)}</small>
             </div>
-            ${isBlockedByProb2 ? `<span class="o2o-blocked-pill" title="Bloqueada por PROBLEM 2 — Con lo Puesto (Running on Empty)"><i class="fas fa-ban"></i> Sin equipo</span>` : ""}
+            ${isBlockedByProb2 ? `<span class="o2o-blocked-pill" title="Bloqueada por PROBLEM 2 — Con lo Puesto (Running on Empty)">SIN EQUIPO</span>` : ""}
           </div>
-          <button type="button" class="o2o-btn o2o-btn-challenge o2o-gen-roll-btn" data-sheet-action="roll-general-challenge" data-gen-id="${g.id}" title="Lanzar Reto de ${escapeHtml(g.es)} (${gState.dice}d6)">
-            <i class="fas fa-dice-d6"></i> Reto
-          </button>
+          <div class="o2o-gen-dice-status" title="${isSpent ? "2º dado gastado (haz clic para alternar manualmente o pulsa Descansar)" : "2º dado disponible"}" data-sheet-action="toggle-second-die" data-gen-id="${g.id}">
+            <span class="o2o-die-icon die-1"><i class="fas fa-dice-one"></i></span>
+            <span class="o2o-die-icon die-2 ${isSpent ? "spent" : "ready"}"><i class="fas fa-dice-two"></i></span>
+          </div>
+          <div class="o2o-gen-roll-actions">
+            <button type="button" class="o2o-paper-roll-btn roll-1d6" data-sheet-action="roll-general-1d6" data-gen-id="${g.id}" title="Tirar 1D6 en ${escapeHtml(g.es)} (No gasta el 2º dado)">
+              1d6
+            </button>
+            <button type="button" class="o2o-paper-roll-btn roll-2d6 ${isSpent ? "disabled" : ""}" data-sheet-action="roll-general-2d6" data-gen-id="${g.id}" ${isSpent ? "disabled" : ""} title="${isSpent ? "Ya has gastado el 2º dado en esta habilidad. Pulsa 'Descansar' para recuperarlo." : `Tirar 2D6 en ${escapeHtml(g.es)} (Gasta el 2º dado de esta habilidad)`}">
+              ${isSpent ? "2º Gastado" : "2d6"}
+            </button>
+          </div>
         </div>
       `;
     }).join("");
   };
 
-  const renderTracker = (key, titleEn, titleEs, color, icon, tableCount) => {
+  const renderTracker = (key, titleEn, titleEs, accentClass, tableCount) => {
     const currentVal = data.trackers[key] ?? 0;
     let boxes = "";
     for (let v = 0; v <= 5; v++) {
@@ -2281,18 +2462,17 @@ function buildAgentSheetInnerHTML(actorDoc) {
       const isFilled = v > 0 && v <= currentVal;
       boxes += `
         <button type="button" class="o2o-tracker-box ${isSelected ? "active" : ""} ${isFilled ? "filled" : ""}"
-                data-sheet-action="set-tracker" data-tracker="${key}" data-val="${v}"
-                style="${isSelected ? `border-color:${color}; background:${color}33; color:#fff;` : ""}">
+                data-sheet-action="set-tracker" data-tracker="${key}" data-val="${v}">
           ${v}
         </button>
       `;
     }
     return `
-      <div class="o2o-tracker-card" style="border-top: 3px solid ${color};">
+      <div class="o2o-tracker-card ${accentClass}">
         <div class="o2o-tracker-header">
-          <span style="color:${color}; font-weight:800;"><i class="fas ${icon}"></i> ${titleEn} <small style="color:#cbd5e1; font-weight:600;">(${titleEs})</small></span>
-          <span class="o2o-tracker-table-badge" title="Cartas de tipo ${titleEn} activas ahora mismo en la mesa">
-            En mesa: <strong>${tableCount}</strong>
+          <span><strong>${titleEn}</strong> <small>(${titleEs})</small></span>
+          <span class="o2o-tracker-table-badge" title="Cartas de tipo ${titleEn} activas en mesa">
+            Mesa: <b>${tableCount}</b>
           </span>
         </div>
         <div class="o2o-tracker-boxes">${boxes}</div>
@@ -2302,83 +2482,106 @@ function buildAgentSheetInnerHTML(actorDoc) {
 
   return `
     <div class="o2o-agent-sheet">
-      <!-- CABECERA SUPERIOR: NOMBRE, CONTACTOS, PUSHES Y RETRATO -->
+      <!-- ENCABEZADO DEL EXPEDIENTE EN PAPEL -->
+      <div class="o2o-dossier-topbar">
+        <div class="o2o-dossier-stamp">CONFIDENTIAL // DOSSIER DE INVESTIGACIÓN</div>
+        <div class="o2o-dossier-top-actions">
+          ${allAgents.length > 1 ? `
+            <select class="o2o-paper-select o2o-switch-agent-select" title="Cambiar entre fichas de Agente creadas">
+              ${allAgents.map(a => `<option value="${a.id}" ${a.id === actorDoc?.id ? "selected" : ""}>📁 ${escapeHtml(a.name)}</option>`).join("")}
+            </select>
+          ` : ""}
+          ${game.user.isGM ? `
+            <button type="button" class="o2o-paper-btn" data-sheet-action="create-new-agent" title="Crear una ficha nueva de Agente en blanco para rellenar a mano">
+              <i class="fas fa-user-plus"></i> + Nueva Ficha
+            </button>
+          ` : ""}
+          <button type="button" class="o2o-paper-btn rest-btn" data-sheet-action="rest-recover-dice" title="Descansar: Recupera todos los segundos dados (2d6) gastados en las Habilidades Generales">
+            <i class="fas fa-mug-hot"></i> Descansar ${spentSecondDiceCount > 0 ? `(${spentSecondDiceCount})` : ""}
+          </button>
+          <button type="button" class="o2o-paper-btn" data-sheet-action="share-agent-chat" title="Publicar resumen del expediente en el Chat">
+            <i class="fas fa-comment-dots"></i> Chat
+          </button>
+        </div>
+      </div>
+
+      <!-- BLOQUE IDENTIDAD: RETRATO + NOMBRE + PUSHES + CONTACTOS -->
       <div class="o2o-sheet-top-grid">
-        <div class="o2o-sheet-identity-box">
-          <div class="o2o-sheet-banner-title">
-            <div>
-              <span class="o2o-nba-badge">NIGHT'S BLACK AGENTS: SOLO OPS</span>
-              <h2>FICHA DE AGENTE — GUMSHOE ONE-2-ONE</h2>
-            </div>
-            <div style="display:flex; gap:6px; align-items:center;">
-              <button type="button" class="o2o-btn" data-sheet-action="reset-leyla-defaults" title="Restaurar las 17 habilidades oficiales y valores iniciales de Leyla Khan">
-                <i class="fas fa-rotate-left"></i> Restaurar PDF Oficial
-              </button>
-              <button type="button" class="o2o-btn" data-sheet-action="share-agent-chat" title="Publicar resumen de la ficha en el Chat">
-                <i class="fas fa-comment-dots"></i> Chat
-              </button>
+        <div class="o2o-sheet-portrait-box">
+          <div class="o2o-portrait-frame">
+            <div class="o2o-paperclip"></div>
+            <img src="${escapeHtml(portraitSrc)}" alt="${escapeHtml(data.agentName)}" class="o2o-agent-portrait-img" data-sheet-action="change-portrait" title="Haz clic para cambiar la fotografía del expediente" />
+            <div class="o2o-portrait-caption">
+              <small>${checkedInvCount}/38 Hab. Investigación</small>
             </div>
           </div>
+        </div>
 
+        <div class="o2o-sheet-identity-box">
           <div class="o2o-sheet-name-pushes-row">
             <div class="o2o-name-field">
-              <label>NAME / AGENTE:</label>
-              <input type="text" class="o2o-input o2o-agent-name-input" value="${escapeHtml(data.agentName)}" />
+              <label>NOMBRE:</label>
+              <input type="text" class="o2o-paper-input o2o-agent-name-input" value="${escapeHtml(data.agentName)}" placeholder="Nombre del Agente..." />
             </div>
 
-            <div class="o2o-pushes-widget" title="Reserva de Pushes (Empujes) para pistas o ventajas extra">
-              <span class="o2o-pushes-label"><i class="fas fa-bolt" style="color:#f59e0b;"></i> PUSHES:</span>
-              <button type="button" class="o2o-tick-btn" data-sheet-action="delta-push" data-delta="-1">-</button>
+            <div class="o2o-pushes-widget" title="Reserva de Pushes (Empujes) disponibles">
+              <span class="o2o-pushes-label">PUSHES:</span>
+              <button type="button" class="o2o-paper-mini-btn" data-sheet-action="delta-push" data-delta="-1">-</button>
               <span class="o2o-pushes-count">${data.pushes}</span>
-              <button type="button" class="o2o-tick-btn" data-sheet-action="delta-push" data-delta="1">+</button>
-              <button type="button" class="o2o-btn o2o-btn-gm" data-sheet-action="spend-push-generic" style="padding:3px 8px; font-size:11px;">
-                ⚡ Gastar Push
+              <button type="button" class="o2o-paper-mini-btn" data-sheet-action="delta-push" data-delta="1">+</button>
+              <button type="button" class="o2o-paper-btn" data-sheet-action="spend-push-generic" style="padding:2px 6px; font-size:11px;">
+                Gastar
               </button>
             </div>
           </div>
 
           <div class="o2o-contacts-section">
             <div class="o2o-contacts-header">
-              <span><i class="fas fa-address-card" style="color:#eab308;"></i> CONTACTS (CONTACTOS Y RED DE APOYO)</span>
-              <span style="font-size:11px; color:#94a3b8;">${activeContacts.length} carta(s) de Contacto en mesa</span>
+              <span>CONTACTOS Y FUENTES (CONTACTS):</span>
+              <span>${activeContacts.length} en mesa</span>
             </div>
 
             ${activeContacts.length > 0 ? `
               <div class="o2o-active-contacts-pills">
                 ${activeContacts.map(c => `
-                  <div class="o2o-contact-pill" data-sheet-action="inspect-contact-card" data-card-id="${c.id}" title="Haz clic para inspeccionar la carta de este Contacto">
-                    <strong><i class="fas fa-user-check"></i> ${escapeHtml(c.name)}</strong>
-                    ${c.investigativeAbilities ? `<div><small style="color:#fde047;">Inv:</small> ${escapeHtml(c.investigativeAbilities)}</div>` : ""}
-                    ${c.generalAbilities ? `<div><small style="color:#7dd3fc;">Gen:</small> ${escapeHtml(c.generalAbilities)}</div>` : ""}
+                  <div class="o2o-contact-pill" data-sheet-action="inspect-contact-card" data-card-id="${c.id}" title="Haz clic para ver la carta de este Contacto">
+                    <strong><i class="fas fa-paperclip"></i> ${escapeHtml(c.name)}</strong>
+                    ${c.investigativeAbilities ? `<div><small>Inv:</small> ${escapeHtml(c.investigativeAbilities)}</div>` : ""}
+                    ${c.generalAbilities ? `<div><small>Gen:</small> ${escapeHtml(c.generalAbilities)}</div>` : ""}
                   </div>
                 `).join("")}
               </div>
             ` : ""}
 
-            <textarea class="o2o-textarea o2o-contacts-textarea" rows="3" placeholder="Anota aquí tus Contactos de operación, tapaderas o aliados adicionales (ej. Magdalena Halmi, Viktor, Cillian Sinclair...)">${escapeHtml(data.contactsNotes)}</textarea>
-          </div>
-        </div>
-
-        <div class="o2o-sheet-portrait-box">
-          <div class="o2o-portrait-frame">
-            <img src="${escapeHtml(portraitSrc)}" alt="${escapeHtml(data.agentName)}" class="o2o-agent-portrait-img" data-sheet-action="change-portrait" title="Haz clic para cambiar el retrato del Agente" />
-            <div class="o2o-portrait-caption">
-              <span>${escapeHtml(data.agentName)}</span>
-              <small>${checkedInvCount}/38 Hab. Investigación</small>
-            </div>
+            <textarea class="o2o-paper-textarea o2o-contacts-textarea" rows="2" placeholder="Contactos anotados a máquina...">${escapeHtml(data.contactsNotes)}</textarea>
           </div>
         </div>
       </div>
 
-      <!-- CUERPO CENTRAL: 38 HABILIDADES DE INVESTIGACIÓN (3 COLUMNAS) + 16 HABILIDADES GENERALES (1 COLUMNA) -->
+      <!-- FILA COMPACTA DE LOS 3 MEDIDORES OFICIALES (HEAT / INJURY / SHADOW 0-5) -->
+      <div class="o2o-trackers-bar-wrapper">
+        <div class="o2o-trackers-bar-header">
+          <span>MEDIDORES DE ESTADO (TRACKERS 0–5)</span>
+          <button type="button" class="o2o-paper-btn" data-sheet-action="sync-trackers-from-table" style="padding:1px 7px; font-size:10.5px;" title="Igualar Heat, Injury y Shadow al número de cartas de cada tipo activas en mesa">
+            <i class="fas fa-arrows-rotate"></i> Sincronizar con Mesa
+          </button>
+        </div>
+        <div class="o2o-trackers-row">
+          ${renderTracker("heat", "HEAT", "Alerta", "tracker-heat", tableHeatCount)}
+          ${renderTracker("injury", "INJURY", "Heridas", "tracker-injury", tableInjuryCount)}
+          ${renderTracker("shadow", "SHADOW", "Sombra", "tracker-shadow", tableShadowCount)}
+        </div>
+      </div>
+
+      <!-- CUERPO CENTRAL VERTICAL Y COMPACTO: 38 INVESTIGACIÓN + 16 GENERALES (1D6 / 2D6) -->
       <div class="o2o-sheet-abilities-grid">
         <div class="o2o-investigative-panel">
           <div class="o2o-panel-title-bar">
-            <span><i class="fas fa-magnifying-glass" style="color:#38bdf8;"></i> INVESTIGATIVE ABILITIES (HABILIDADES DE INVESTIGACIÓN)</span>
+            <span>HABILIDADES DE INVESTIGACIÓN (${checkedInvCount})</span>
             <div class="o2o-cat-legend">
-              <span><b class="o2o-inv-cat cat-A">A</b> Académica</span>
-              <span><b class="o2o-inv-cat cat-I">I</b> Interpersonal</span>
-              <span><b class="o2o-inv-cat cat-T">T</b> Técnica</span>
+              <span><b class="o2o-inv-cat cat-A">A</b>Acad</span>
+              <span><b class="o2o-inv-cat cat-I">I</b>Inter</span>
+              <span><b class="o2o-inv-cat cat-T">T</b>Técn</span>
             </div>
           </div>
           <div class="o2o-inv-columns">
@@ -2390,8 +2593,15 @@ function buildAgentSheetInnerHTML(actorDoc) {
 
         <div class="o2o-general-panel">
           <div class="o2o-panel-title-bar">
-            <span><i class="fas fa-dice-d6" style="color:#10b981;"></i> GENERAL ABILITIES</span>
-            <span style="font-size:10px; color:#94a3b8;" title="Casilla izquierda: STUNT USE (Maniobra Especial)">STUNT | DADOS</span>
+            <span>HAB. GENERALES</span>
+            <button type="button" class="o2o-paper-btn rest-btn" data-sheet-action="rest-recover-dice" style="padding:1px 6px; font-size:10px;" title="Recuperar todos los segundos D6 gastados">
+              <i class="fas fa-mug-hot"></i> Descansar
+            </button>
+          </div>
+          <div class="o2o-gen-subbar">
+            <span title="STUNT USE (Maniobra Especial)">STUNT</span>
+            <span>HABILIDAD</span>
+            <span>DADOS / TIRAR</span>
           </div>
           <div class="o2o-gen-list">
             ${renderGeneralAbilities()}
@@ -2399,28 +2609,12 @@ function buildAgentSheetInnerHTML(actorDoc) {
         </div>
       </div>
 
-      <!-- PIE DE FICHA: 3 TRACKERS OFICIALES (0-5) + BLOQUE DE NOTAS -->
-      <div class="o2o-sheet-bottom-grid">
-        <div class="o2o-trackers-column">
-          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
-            <span style="font-size:11.5px; font-weight:800; color:#cbd5e1; text-transform:uppercase; letter-spacing:0.5px;">
-              <i class="fas fa-gauge-high"></i> Medidores Oficiales de Estado (0 a 5)
-            </span>
-            <button type="button" class="o2o-btn" data-sheet-action="sync-trackers-from-table" style="padding:2px 8px; font-size:11px;" title="Igualar Heat, Injury y Shadow al número de cartas de cada tipo que hay activas en la mesa">
-              <i class="fas fa-arrows-rotate"></i> Sincronizar con Mesa
-            </button>
-          </div>
-          ${renderTracker("heat", "HEAT TRACKER", "Presión / Alerta", "#f97316", "fa-siren-on", tableHeatCount)}
-          ${renderTracker("injury", "INJURY TRACKER", "Heridas", "#ef4444", "fa-heart-crack", tableInjuryCount)}
-          ${renderTracker("shadow", "SHADOW TRACKER", "Sombra / Vampiros", "#a855f7", "fa-eye", tableShadowCount)}
+      <!-- PIE DE PÁGINA: NOTAS MECANOGRAFIADAS -->
+      <div class="o2o-notes-column">
+        <div class="o2o-panel-title-bar">
+          <span>NOTAS DEL EXPEDIENTE (NOTES)</span>
         </div>
-
-        <div class="o2o-notes-column">
-          <div class="o2o-panel-title-bar">
-            <span><i class="fas fa-note-sticky" style="color:#eab308;"></i> NOTES (NOTAS DE OPERACIÓN, PISTAS Y EQUIPO)</span>
-          </div>
-          <textarea class="o2o-textarea o2o-agent-notes-textarea" placeholder="Escribe aquí tus pistas clave de Budapest, equipo recogido, nombres de sospechosos o consecuencias...">${escapeHtml(data.notes)}</textarea>
-        </div>
+        <textarea class="o2o-paper-textarea o2o-agent-notes-textarea" rows="4" placeholder="Escribe aquí tus pistas, equipo, tapaderas o notas de investigación...">${escapeHtml(data.notes)}</textarea>
       </div>
     </div>
   `;
@@ -2429,10 +2623,25 @@ function buildAgentSheetInnerHTML(actorDoc) {
 function bindAgentSheetEvents(containerEl, actorDoc) {
   if (!containerEl) return;
 
+  // Selector de cambio rápido entre fichas de Agente
+  const switchSelect = containerEl.querySelector(".o2o-switch-agent-select");
+  switchSelect?.addEventListener("change", (e) => {
+    const nextActor = game.actors?.get(e.target.value);
+    if (nextActor) {
+      const modal = document.getElementById("one2one-agent-sheet-modal");
+      if (modal) {
+        modal.dataset.actorId = nextActor.id;
+        renderAgentSheetModalContent(nextActor);
+      } else {
+        nextActor.sheet?.render(true);
+      }
+    }
+  });
+
   // Cambio de nombre del Agente
   const nameInput = containerEl.querySelector(".o2o-agent-name-input");
   nameInput?.addEventListener("change", async (e) => {
-    const val = e.target.value.trim() || "LEYLA KHAN";
+    const val = e.target.value.trim() || "AGENTE";
     await updateAgentDataOnActor(actorDoc, { agentName: val });
   });
 
@@ -2463,21 +2672,9 @@ function bindAgentSheetEvents(containerEl, actorDoc) {
     chk.addEventListener("change", async (e) => {
       const genId = e.currentTarget.dataset.genId;
       const current = getAgentDataFromActor(actorDoc);
-      const prev = current.general[genId] || { dice: 2, stunt: false };
+      const prev = current.general[genId] || { dice: 2, stunt: false, secondDieSpent: false };
       await updateAgentDataOnActor(actorDoc, {
         general: { [genId]: { ...prev, stunt: e.currentTarget.checked } }
-      });
-    });
-  });
-
-  // Selector de Dados Base (1d6 - 4d6) en Habilidades Generales
-  containerEl.querySelectorAll(".o2o-gen-dice-select").forEach(sel => {
-    sel.addEventListener("change", async (e) => {
-      const genId = e.currentTarget.dataset.genId;
-      const current = getAgentDataFromActor(actorDoc);
-      const prev = current.general[genId] || { dice: 2, stunt: false };
-      await updateAgentDataOnActor(actorDoc, {
-        general: { [genId]: { ...prev, dice: Number(e.currentTarget.value || 2) } }
       });
     });
   });
@@ -2489,7 +2686,9 @@ function bindAgentSheetEvents(containerEl, actorDoc) {
       const action = e.currentTarget.dataset.sheetAction;
       const data = getAgentDataFromActor(actorDoc);
 
-      if (action === "delta-push") {
+      if (action === "create-new-agent") {
+        await createNewCustomAgentActor();
+      } else if (action === "delta-push") {
         const delta = Number(e.currentTarget.dataset.delta || 0);
         const nextPushes = Math.max(0, data.pushes + delta);
         await updateAgentDataOnActor(actorDoc, { pushes: nextPushes });
@@ -2504,13 +2703,13 @@ function bindAgentSheetEvents(containerEl, actorDoc) {
           user: game.user.id,
           speaker: ChatMessage.getSpeaker({ actor: actorDoc }),
           content: `
-            <div class="o2o-chat-card edge" style="border-color:#f59e0b;">
-              <div class="o2o-chat-header" style="color:#f59e0b;">
-                <span><i class="fas fa-bolt"></i> ¡PUSH GASTADO! (${escapeHtml(data.agentName)})</span>
+            <div class="o2o-chat-card edge" style="border-color:#b45309;">
+              <div class="o2o-chat-header" style="color:#fcd34d;">
+                <span><i class="fas fa-bolt"></i> PUSH GASTADO (${escapeHtml(data.agentName)})</span>
                 <span>Quedan: ${nextPushes}</span>
               </div>
               <div style="font-size:12.5px;">
-                <strong>${escapeHtml(data.agentName)}</strong> gasta <strong>1 Push</strong> para obtener una pista clave, ventaja narrativa o beneficio adicional.
+                <strong>${escapeHtml(data.agentName)}</strong> gasta <strong>1 Push</strong> para obtener una pista clave o ventaja adicional.
               </div>
             </div>
           `
@@ -2530,7 +2729,7 @@ function bindAgentSheetEvents(containerEl, actorDoc) {
           await updateAgentDataOnActor(actorDoc, { pushes: data.pushes - 1 });
         }
 
-        const color = isPush ? "#f59e0b" : "#38bdf8";
+        const color = isPush ? "#d97706" : "#38bdf8";
         await ChatMessage.create({
           user: game.user.id,
           speaker: ChatMessage.getSpeaker({ actor: actorDoc }),
@@ -2544,23 +2743,110 @@ function bindAgentSheetEvents(containerEl, actorDoc) {
                 <div><strong>Agente:</strong> ${escapeHtml(data.agentName)}</div>
                 <div><strong>Habilidad:</strong> ${escapeHtml(ab.es)} (<em>${escapeHtml(ab.en)}</em>)</div>
                 <div style="margin-top:4px; color:${hasAbility ? "#6ee7b7" : "#fca5a5"};">
-                  ${hasAbility ? "✔ El agente posee esta habilidad entrenada." : "⚠ El agente no tiene marcada esta habilidad."}
+                  ${hasAbility ? "✔ Habilidad entrenada en el expediente." : "⚠ Habilidad no marcada en el expediente."}
                 </div>
-                ${isPush ? `<div style="margin-top:4px; color:#fcd34d;">⚡ <strong>1 Push gastado</strong> (Pushes restantes: ${Math.max(0, data.pushes - 1)}).</div>` : ""}
+                ${isPush ? `<div style="margin-top:4px; color:#fcd34d;">⚡ <strong>1 Push gastado</strong> (Restantes: ${Math.max(0, data.pushes - 1)}).</div>` : ""}
               </div>
             </div>
           `
         });
-      } else if (action === "roll-general-challenge") {
+      } else if (action === "roll-general-1d6") {
         const genId = e.currentTarget.dataset.genId;
         const g = GENERAL_ABILITIES_DEF.find(x => x.id === genId);
         if (!g) return;
-        const gState = data.general[genId] || { dice: 2, stunt: false };
-        openChallengeRollerModal({
-          skillName: `${g.es} (${g.en})`,
-          baseDice: gState.dice,
-          advanceThreshold: 6,
-          holdThreshold: 4
+
+        const roll = await (new Roll("1d6")).evaluate();
+        if (game.dice3d) await game.dice3d.showForRoll(roll, game.user, true);
+
+        await ChatMessage.create({
+          user: game.user.id,
+          speaker: ChatMessage.getSpeaker({ actor: actorDoc }),
+          content: `
+            <div class="o2o-chat-card challenge" style="border-color:#a16207;">
+              <div class="o2o-chat-header" style="color:#fde047;">
+                <span><i class="fas fa-dice-one"></i> ${escapeHtml(g.es)} (${escapeHtml(g.en)})</span>
+                <span>1D6</span>
+              </div>
+              <div style="font-size:13px; line-height:1.45;">
+                <div><strong>Agente:</strong> ${escapeHtml(data.agentName)}</div>
+                <div style="font-size:18px; font-weight:900; color:#ffffff; margin:6px 0;">
+                  Resultado: ${roll.total} <span style="font-size:12px; color:#cbd5e1; font-weight:400;">([${roll.total}])</span>
+                </div>
+                <div style="font-size:11px; color:#94a3b8;">Tirada base de 1d6 (conserva el 2º dado).</div>
+              </div>
+            </div>
+          `
+        });
+      } else if (action === "roll-general-2d6") {
+        const genId = e.currentTarget.dataset.genId;
+        const g = GENERAL_ABILITIES_DEF.find(x => x.id === genId);
+        if (!g) return;
+        const prev = data.general[genId] || { dice: 2, stunt: false, secondDieSpent: false };
+
+        if (prev.secondDieSpent) {
+          ui.notifications.warn(`Ya has gastado el segundo D6 de ${g.es}. Pulsa "Descansar" para recuperar los segundos dados.`);
+          return;
+        }
+
+        const roll = await (new Roll("2d6")).evaluate();
+        if (game.dice3d) await game.dice3d.showForRoll(roll, game.user, true);
+        const terms = roll.dice?.[0]?.results?.map(r => r.result) || [roll.total];
+
+        await updateAgentDataOnActor(actorDoc, {
+          general: { [genId]: { ...prev, secondDieSpent: true } }
+        });
+
+        await ChatMessage.create({
+          user: game.user.id,
+          speaker: ChatMessage.getSpeaker({ actor: actorDoc }),
+          content: `
+            <div class="o2o-chat-card challenge" style="border-color:#d97706;">
+              <div class="o2o-chat-header" style="color:#fbbf24;">
+                <span><i class="fas fa-dice"></i> ${escapeHtml(g.es)} (${escapeHtml(g.en)})</span>
+                <span>2D6 (2º DADO GASTADO)</span>
+              </div>
+              <div style="font-size:13px; line-height:1.45;">
+                <div><strong>Agente:</strong> ${escapeHtml(data.agentName)}</div>
+                <div style="font-size:18px; font-weight:900; color:#ffffff; margin:6px 0;">
+                  Resultado: ${roll.total} <span style="font-size:12px; color:#fcd34d; font-weight:600;">([${terms.join(" + ")}])</span>
+                </div>
+                <div style="font-size:11.5px; color:#fdba74;">
+                  <i class="fas fa-ban"></i> El <strong>2º D6 de ${escapeHtml(g.es)}</strong> ha quedado gastado hasta que descanses.
+                </div>
+              </div>
+            </div>
+          `
+        });
+      } else if (action === "toggle-second-die") {
+        const genId = e.currentTarget.dataset.genId;
+        const prev = data.general[genId] || { dice: 2, stunt: false, secondDieSpent: false };
+        await updateAgentDataOnActor(actorDoc, {
+          general: { [genId]: { ...prev, secondDieSpent: !prev.secondDieSpent } }
+        });
+      } else if (action === "rest-recover-dice") {
+        const recoveredGeneral = {};
+        let recoveredCount = 0;
+        for (const g of GENERAL_ABILITIES_DEF) {
+          const prev = data.general[g.id] || { dice: 2, stunt: false, secondDieSpent: false };
+          if (prev.secondDieSpent) recoveredCount++;
+          recoveredGeneral[g.id] = { ...prev, secondDieSpent: false };
+        }
+        await updateAgentDataOnActor(actorDoc, { general: recoveredGeneral });
+        ui.notifications.info(`${data.agentName} ha descansado: recuperados todos los segundos D6 (${recoveredCount} recuperados).`);
+
+        await ChatMessage.create({
+          user: game.user.id,
+          speaker: ChatMessage.getSpeaker({ actor: actorDoc }),
+          content: `
+            <div class="o2o-chat-card edge" style="border-color:#10b981;">
+              <div class="o2o-chat-header" style="color:#6ee7b7;">
+                <span><i class="fas fa-mug-hot"></i> Descanso Completado (${escapeHtml(data.agentName)})</span>
+              </div>
+              <div style="font-size:12.5px;">
+                <strong>${escapeHtml(data.agentName)}</strong> ha descansado y recupera todos los <strong>segundos dados (2d6)</strong> de sus Habilidades Generales.
+              </div>
+            </div>
+          `
         });
       } else if (action === "set-tracker") {
         const trackerKey = e.currentTarget.dataset.tracker;
@@ -2584,17 +2870,13 @@ function bindAgentSheetEvents(containerEl, actorDoc) {
         const stacks = getStacksSync();
         const doc = stacks.hand?.cards.get(cardId);
         if (doc) openCardInspectorModal(doc);
-      } else if (action === "reset-leyla-defaults") {
-        const defaults = buildDefaultLeylaAgentData();
-        await updateAgentDataOnActor(actorDoc, defaults);
-        ui.notifications.info("Ficha restaurada a los valores iniciales oficiales de Leyla Khan.");
       } else if (action === "change-portrait") {
         if (!actorDoc) return;
         const FPClass = foundry?.applications?.apps?.FilePicker?.implementation || window.FilePicker;
         if (!FPClass) return;
         const fp = new FPClass({
           type: "image",
-          current: actorDoc.img || LEYLA_PORTRAIT_PATH,
+          current: actorDoc.img || DEFAULT_AGENT_PORTRAIT_PATH,
           callback: async (path) => {
             await actorDoc.update({ img: path });
             refreshAgentSheetViews(actorDoc);
@@ -2610,13 +2892,13 @@ function bindAgentSheetEvents(containerEl, actorDoc) {
           speaker: ChatMessage.getSpeaker({ actor: actorDoc }),
           content: `
             <div class="o2o-chat-card challenge">
-              <div class="o2o-chat-header" style="color:#38bdf8;">
-                <span><i class="fas fa-user-secret"></i> ${escapeHtml(data.agentName)}</span>
+              <div class="o2o-chat-header" style="color:#fde047;">
+                <span><i class="fas fa-folder-open"></i> Expediente: ${escapeHtml(data.agentName)}</span>
                 <span>Pushes: ${data.pushes}</span>
               </div>
               <div style="font-size:12px; line-height:1.45;">
                 <div><strong>Heat:</strong> ${data.trackers.heat}/5 | <strong>Injury:</strong> ${data.trackers.injury}/5 | <strong>Shadow:</strong> ${data.trackers.shadow}/5</div>
-                <div style="margin-top:5px;"><strong>Habilidades Investigación (${trainedInv.length}):</strong> ${escapeHtml(trainedInv.join(", "))}</div>
+                <div style="margin-top:5px;"><strong>Habilidades Investigación (${trainedInv.length}):</strong> ${trainedInv.length ? escapeHtml(trainedInv.join(", ")) : "Ninguna marcada"}</div>
               </div>
             </div>
           `
@@ -2653,27 +2935,21 @@ function renderAgentSheetModalContent(actorDoc = null) {
   const actor = actorDoc || (modal.dataset.actorId ? game.actors?.get(modal.dataset.actorId) : null) || getActiveAgentActorSync();
 
   modal.innerHTML = `
-    <div class="o2o-modal-window o2o-agent-modal-window" style="width: min(1180px, 96vw); max-height: 92vh;">
-      <div class="o2o-modal-header">
+    <div class="o2o-modal-window o2o-agent-modal-window" style="width: min(760px, 95vw); max-height: 92vh;">
+      <div class="o2o-modal-header o2o-dossier-modal-header">
         <h3>
-          <i class="fas fa-user-secret" style="color:#38bdf8;"></i>
-          Ficha Oficial de Agente — ${escapeHtml(actor?.name || "Leyla Khan")} (Night's Black Agents: Solo Ops)
+          <i class="fas fa-folder-open"></i>
+          EXPEDIENTE DE AGENTE — ${escapeHtml(actor?.name || "Agente")}
         </h3>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <button type="button" class="o2o-btn o2o-btn-challenge" id="o2o-agent-open-roller">
-            <i class="fas fa-dice-d6"></i> Lanzador de Retos
-          </button>
-          <button type="button" class="o2o-btn" id="o2o-agent-modal-close"><i class="fas fa-times"></i></button>
-        </div>
+        <button type="button" class="o2o-paper-btn" id="o2o-agent-modal-close"><i class="fas fa-times"></i></button>
       </div>
-      <div class="o2o-modal-body" id="o2o-agent-modal-body" style="padding:14px 16px;">
+      <div class="o2o-modal-body o2o-dossier-modal-body" id="o2o-agent-modal-body">
         ${buildAgentSheetInnerHTML(actor)}
       </div>
     </div>
   `;
 
   modal.querySelector("#o2o-agent-modal-close")?.addEventListener("click", () => modal.remove());
-  modal.querySelector("#o2o-agent-open-roller")?.addEventListener("click", () => openChallengeRollerModal());
 
   const bodyEl = modal.querySelector("#o2o-agent-modal-body");
   bindAgentSheetEvents(bodyEl, actor);
@@ -2683,7 +2959,6 @@ function refreshAgentSheetViews(actorDoc = null) {
   if (document.getElementById("one2one-agent-sheet-modal")) {
     renderAgentSheetModalContent(actorDoc);
   }
-  // Si hay una ventana ActorSheet nativa abierta usando nuestra hoja, refrescar su interior
   document.querySelectorAll(".o2o-native-actor-sheet-mount").forEach(mount => {
     const aid = mount.dataset.actorId;
     const act = (aid && game.actors?.get(aid)) || actorDoc || getActiveAgentActorSync();
@@ -2705,7 +2980,7 @@ function registerOne2OneActorSheet() {
     const dataModelTypes = Object.keys(CONFIG.Actor?.dataModels || {});
     const rawTypes = dataModelTypes.length ? dataModelTypes : (game.documentTypes?.Actor || Actor.TYPES || []);
     const validTypes = rawTypes.filter(t => t && t !== "base");
-    if (validTypes.length === 0) return; // Esperar al hook 'setup' cuando el sistema haya registrado sus tipos
+    if (validTypes.length === 0) return;
 
     const ActorSheetV2Class = foundry?.applications?.sheets?.ActorSheetV2;
     const BaseActorSheetV1 = foundry?.appv1?.sheets?.ActorSheet || window.ActorSheet;
@@ -2715,7 +2990,7 @@ function registerOne2OneActorSheet() {
         static DEFAULT_OPTIONS = {
           classes: ["o2o-actor-sheet-app"],
           position: {
-            width: 1160,
+            width: 760,
             height: 860
           },
           window: {
@@ -2724,7 +2999,7 @@ function registerOne2OneActorSheet() {
         };
 
         get title() {
-          return `${this.document?.name || "Leyla Khan"} — GUMSHOE One-2-One (NBA: Solo Ops)`;
+          return `Expediente: ${this.document?.name || "Agente"} — GUMSHOE One-2-One`;
         }
 
         async _renderHTML(_context, _options) {
@@ -2743,7 +3018,7 @@ function registerOne2OneActorSheet() {
 
       ActorsCollection.registerSheet(MODULE_ID, GumshoeOne2OneActorSheet, {
         types: validTypes,
-        label: "GUMSHOE One-2-One: Ficha de Agente (NBA: Solo Ops)",
+        label: "GUMSHOE One-2-One: Expediente de Agente",
         makeDefault: false
       });
       _one2OneSheetRegistered = true;
@@ -2753,14 +3028,14 @@ function registerOne2OneActorSheet() {
         static get defaultOptions() {
           return foundry.utils.mergeObject(super.defaultOptions, {
             classes: ["o2o-actor-sheet-app"],
-            width: 1160,
+            width: 760,
             height: 860,
             resizable: true
           });
         }
 
         get title() {
-          return `${this.actor?.name || "Leyla Khan"} — GUMSHOE One-2-One (NBA: Solo Ops)`;
+          return `Expediente: ${this.actor?.name || "Agente"} — GUMSHOE One-2-One`;
         }
 
         async _renderInner() {
@@ -2775,7 +3050,7 @@ function registerOne2OneActorSheet() {
 
       ActorsCollection.registerSheet(MODULE_ID, GumshoeOne2OneActorSheet, {
         types: validTypes,
-        label: "GUMSHOE One-2-One: Ficha de Agente (NBA: Solo Ops)",
+        label: "GUMSHOE One-2-One: Expediente de Agente",
         makeDefault: false
       });
       _one2OneSheetRegistered = true;

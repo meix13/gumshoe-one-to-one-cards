@@ -2,6 +2,7 @@
    GUMSHOE ONE-2-ONE: SISTEMA DE CARTAS Y RETOS (Foundry VTT v12-v14)
    Soporta Modo Paramétrico (CSS) y Modo Imagen Completa (Full Image)
    ========================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Special+Elite&display=swap');
 
 :root {
   --o2o-bg-dark: rgba(14, 17, 23, 0.95);
@@ -36,7 +37,7 @@
   left: 50%;
   transform: translateX(-50%);
   width: min(1080px, calc(100vw - 380px));
-  min-width: 560px;
+  min-width: 520px;
   background: var(--o2o-bg-dark);
   border: 1px solid var(--o2o-border-base);
   border-radius: 12px;
@@ -45,17 +46,37 @@
   font-family: "Signika", "Segoe UI", sans-serif;
   z-index: 65;
   backdrop-filter: blur(10px);
-  transition: all 0.25s ease;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+#one2one-tabletop-dock .o2o-dock-header {
+  cursor: move;
+  user-select: none;
 }
 
 #one2one-tabletop-dock.is-minimized {
-  width: auto;
+  width: auto !important;
+  height: auto !important;
   min-width: 340px;
 }
 
-#one2one-tabletop-dock.is-minimized .o2o-dock-body {
+#one2one-tabletop-dock.is-minimized .o2o-dock-body,
+#one2one-tabletop-dock.is-minimized .o2o-dock-resize-handle {
   display: none;
+}
+
+.o2o-dock-resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  z-index: 10;
+  background: linear-gradient(135deg, transparent 50%, rgba(56, 189, 248, 0.45) 50%, rgba(56, 189, 248, 0.85) 100%);
+  border-bottom-right-radius: 11px;
 }
 
 #one2one-tabletop-dock.is-hidden {
@@ -247,9 +268,14 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  padding: 10px 14px 12px;
+  padding: 10px 14px 14px;
   max-height: 330px;
+  flex: 1;
   overflow-y: auto;
+}
+
+#one2one-tabletop-dock[style*="height"] .o2o-dock-body {
+  max-height: none;
 }
 
 .o2o-dock-zone {
@@ -937,127 +963,276 @@
 }
 
 /* ==========================================================================
-   6. FICHA INTERACTIVA DE AGENTE (LEYLA KHAN — NBA: SOLO OPS)
+   6. EXPEDIENTE DE AGENTE (ESTILO DOSSIER EN PAPEL MARRÓN + MÁQUINA DE ESCRIBIR)
    ========================================================================== */
 .o2o-btn-agent {
-  background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
-  border-color: #818cf8;
-  color: #ffffff;
+  background: linear-gradient(135deg, #78350f 0%, #451a03 100%);
+  border-color: #d97706;
+  color: #fef3c7;
 }
 
 .o2o-btn-agent:hover {
-  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+  background: linear-gradient(135deg, #92400e 0%, #78350f 100%);
 }
 
-.o2o-actor-sheet-app .window-content {
-  background: #0d1118 !important;
-  color: #f1f5f9 !important;
-  padding: 12px !important;
+/* Ventana contenedora del expediente (tanto ActorSheetV2 como Modal) */
+.o2o-actor-sheet-app .window-content,
+.o2o-dossier-modal-body {
+  background:
+    radial-gradient(circle at 15% 20%, rgba(255, 248, 231, 0.35) 0%, transparent 55%),
+    radial-gradient(circle at 85% 80%, rgba(101, 67, 33, 0.22) 0%, transparent 60%),
+    repeating-linear-gradient(0deg, rgba(62, 43, 25, 0.025) 0px, rgba(62, 43, 25, 0.025) 1px, transparent 1px, transparent 3px),
+    linear-gradient(165deg, #d7c39d 0%, #c8b087 50%, #b99e72 100%) !important;
+  color: #231911 !important;
+  padding: 12px 14px !important;
   overflow-y: auto !important;
+  box-shadow: inset 0 0 38px rgba(58, 36, 16, 0.35);
+}
+
+.o2o-dossier-modal-header {
+  background: linear-gradient(90deg, #3b2818 0%, #26190f 100%) !important;
+  border-bottom: 2px solid #85582c !important;
+}
+
+.o2o-dossier-modal-header h3 {
+  font-family: "Special Elite", "Courier Prime", "Courier New", monospace !important;
+  color: #f3e5c8 !important;
+  letter-spacing: 0.8px;
+  font-size: 15px !important;
 }
 
 .o2o-agent-sheet {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  color: #e2e8f0;
-  font-family: "Signika", "Segoe UI", sans-serif;
+  gap: 9px;
+  color: #231911;
+  font-family: "Courier Prime", "Courier New", Courier, monospace;
 }
 
-/* Cabecera: Identidad + Contactos + Pushes + Retrato */
+/* Barra superior con sello CONFIDENCIAL y botones de expediente */
+.o2o-dossier-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #4a3520;
+}
+
+.o2o-dossier-stamp {
+  font-family: "Special Elite", "Courier Prime", "Courier New", monospace;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #7f1d1d;
+  border: 2px solid #7f1d1d;
+  padding: 2px 8px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  background: rgba(127, 29, 29, 0.06);
+  transform: rotate(-0.6deg);
+}
+
+.o2o-dossier-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.o2o-paper-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 3px;
+  border: 1px solid #4a3520;
+  background: #e7d8ba;
+  color: #231911;
+  font-family: "Courier Prime", "Courier New", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 1px 1px 0 rgba(35, 25, 17, 0.35);
+  transition: all 0.12s ease;
+  width: auto;
+  line-height: 1.2;
+}
+
+.o2o-paper-btn:hover {
+  background: #f5ebd6;
+  border-color: #1f140a;
+  color: #000000;
+}
+
+.o2o-paper-btn.rest-btn {
+  background: #3b2818;
+  color: #f7ead0;
+  border-color: #1f140a;
+}
+
+.o2o-paper-btn.rest-btn:hover {
+  background: #543922;
+  color: #ffffff;
+}
+
+.o2o-paper-mini-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 3px;
+  border: 1px solid #4a3520;
+  background: #e7d8ba;
+  color: #231911;
+  font-family: "Courier Prime", monospace;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.o2o-paper-mini-btn:hover {
+  background: #f5ebd6;
+}
+
+.o2o-paper-select,
+.o2o-paper-input,
+.o2o-paper-textarea {
+  background: rgba(255, 250, 238, 0.55) !important;
+  border: 1px solid #6b5135 !important;
+  border-radius: 3px !important;
+  color: #1c130b !important;
+  font-family: "Courier Prime", "Courier New", monospace !important;
+  font-size: 12px !important;
+  padding: 3px 7px !important;
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.12) !important;
+}
+
+.o2o-paper-input:focus,
+.o2o-paper-textarea:focus,
+.o2o-paper-select:focus {
+  background: rgba(255, 252, 244, 0.85) !important;
+  border-color: #231911 !important;
+  outline: none !important;
+}
+
+/* Cabecera: Retrato a la izquierda + Datos/Contactos a la derecha */
 .o2o-sheet-top-grid {
   display: grid;
-  grid-template-columns: 1fr 195px;
-  gap: 14px;
-  background: rgba(15, 20, 30, 0.9);
-  border: 1px solid #2e3a50;
-  border-radius: 10px;
-  padding: 12px 14px;
+  grid-template-columns: 112px 1fr;
+  gap: 10px;
+  background: rgba(239, 227, 202, 0.52);
+  border: 1px solid #6b5135;
+  border-radius: 4px;
+  padding: 8px 10px;
+}
+
+.o2o-sheet-portrait-box {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.o2o-portrait-frame {
+  position: relative;
+  width: 108px;
+  background: #efe5cf;
+  border: 1px solid #5c452d;
+  padding: 4px 4px 5px;
+  box-shadow: 2px 3px 7px rgba(0, 0, 0, 0.32);
+  transform: rotate(-1.2deg);
+}
+
+.o2o-agent-portrait-img {
+  width: 100%;
+  height: 118px;
+  object-fit: cover;
+  object-position: top center;
+  cursor: pointer;
+  display: block;
+  filter: sepia(0.22) contrast(1.05);
+  border: 1px solid #4a3520;
+}
+
+.o2o-portrait-caption {
+  margin-top: 3px;
+  text-align: center;
+  line-height: 1.1;
+}
+
+.o2o-portrait-caption small {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #4a3520;
 }
 
 .o2o-sheet-identity-box {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-.o2o-sheet-banner-title {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  padding-bottom: 8px;
-}
-
-.o2o-nba-badge {
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 1.2px;
-  color: #f87171;
-  text-transform: uppercase;
-  display: block;
-}
-
-.o2o-sheet-banner-title h2 {
-  margin: 2px 0 0;
-  font-size: 18px;
-  font-weight: 800;
-  color: #ffffff;
-  border: none;
-  letter-spacing: 0.4px;
+  gap: 6px;
 }
 
 .o2o-sheet-name-pushes-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .o2o-name-field {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex: 1;
-  min-width: 240px;
+  min-width: 190px;
 }
 
 .o2o-name-field label {
-  font-size: 12px;
-  font-weight: 800;
-  color: #94a3b8;
+  font-family: "Special Elite", "Courier Prime", monospace;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #3b2818;
   white-space: nowrap;
 }
 
 .o2o-agent-name-input {
-  font-size: 16px !important;
-  font-weight: 800 !important;
-  letter-spacing: 0.5px;
-  color: #38bdf8 !important;
+  font-family: "Special Elite", "Courier Prime", monospace !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.6px;
+  border: none !important;
+  border-bottom: 1.5px dashed #4a3520 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
 }
 
 .o2o-pushes-widget {
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.45);
-  padding: 5px 10px;
-  border-radius: 8px;
+  gap: 5px;
+  background: rgba(120, 53, 15, 0.1);
+  border: 1px solid #6b5135;
+  padding: 2px 7px;
+  border-radius: 3px;
 }
 
 .o2o-pushes-label {
-  font-size: 11.5px;
-  font-weight: 800;
-  color: #fcd34d;
+  font-family: "Special Elite", "Courier Prime", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: #4a3520;
 }
 
 .o2o-pushes-count {
-  font-size: 17px;
-  font-weight: 900;
-  color: #ffffff;
-  min-width: 22px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #7f1d1d;
+  min-width: 18px;
   text-align: center;
 }
 
@@ -1065,227 +1240,252 @@
 .o2o-contacts-section {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  background: rgba(0, 0, 0, 0.28);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
-  padding: 8px 10px;
+  gap: 4px;
 }
 
 .o2o-contacts-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 11.5px;
-  font-weight: 800;
-  color: #fde047;
+  font-family: "Special Elite", "Courier Prime", monospace;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #3b2818;
 }
 
 .o2o-active-contacts-pills {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
 }
 
 .o2o-contact-pill {
-  background: rgba(234, 179, 8, 0.14);
-  border: 1px solid rgba(234, 179, 8, 0.45);
-  border-radius: 6px;
-  padding: 4px 8px;
-  font-size: 11px;
+  background: rgba(255, 248, 228, 0.72);
+  border: 1px dashed #5c452d;
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 10.5px;
   cursor: pointer;
-  transition: all 0.15s ease;
 }
 
 .o2o-contact-pill:hover {
-  background: rgba(234, 179, 8, 0.26);
-  border-color: #fde047;
+  background: #fff9eb;
+  border-style: solid;
 }
 
 .o2o-contacts-textarea {
   width: 100%;
   resize: vertical;
-  min-height: 48px;
+  min-height: 36px;
+  line-height: 1.25;
 }
 
-/* Retrato */
-.o2o-sheet-portrait-box {
-  display: flex;
-  align-items: stretch;
-  justify-content: center;
+/* Fila horizontal compacta con los 3 Medidores (HEAT / INJURY / SHADOW 0-5) */
+.o2o-trackers-bar-wrapper {
+  background: rgba(239, 227, 202, 0.52);
+  border: 1px solid #6b5135;
+  border-radius: 4px;
+  padding: 6px 8px;
 }
 
-.o2o-portrait-frame {
-  width: 100%;
-  background: #090c12;
-  border: 2px solid #334155;
-  border-radius: 9px;
-  overflow: hidden;
+.o2o-trackers-bar-header {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   justify-content: space-between;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+  font-family: "Special Elite", "Courier Prime", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  color: #3b2818;
+  margin-bottom: 5px;
 }
 
-.o2o-agent-portrait-img {
-  width: 100%;
-  height: 190px;
-  object-fit: cover;
-  object-position: top center;
-  cursor: pointer;
-  display: block;
+.o2o-trackers-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
 }
 
-.o2o-portrait-caption {
-  padding: 5px 8px;
-  background: #141a26;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  text-align: center;
+.o2o-tracker-card {
+  background: rgba(255, 250, 238, 0.5);
+  border: 1px solid #6b5135;
+  border-radius: 3px;
+  padding: 4px 6px;
+}
+
+.o2o-tracker-card.tracker-heat { border-top: 3px solid #9a3412; }
+.o2o-tracker-card.tracker-injury { border-top: 3px solid #991b1b; }
+.o2o-tracker-card.tracker-shadow { border-top: 3px solid #3730a3; }
+
+.o2o-tracker-header {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10.5px;
+  margin-bottom: 3px;
+  color: #231911;
 }
 
-.o2o-portrait-caption span {
-  font-size: 12px;
-  font-weight: 800;
-  color: #f8fafc;
+.o2o-tracker-table-badge {
+  font-size: 9.5px;
+  background: rgba(74, 53, 32, 0.12);
+  padding: 0 4px;
+  border-radius: 2px;
 }
 
-.o2o-portrait-caption small {
-  font-size: 10px;
-  color: #38bdf8;
+.o2o-tracker-boxes {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 3px;
 }
 
-/* Paneles Centrales: 38 Investigación (3 cols) + 16 Generales (1 col) */
+.o2o-tracker-box {
+  height: 22px;
+  padding: 0;
+  border-radius: 2px;
+  border: 1px solid #6b5135;
+  background: rgba(255, 252, 245, 0.65);
+  color: #3b2818;
+  font-family: "Courier Prime", monospace;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.o2o-tracker-box.filled {
+  background: rgba(120, 53, 15, 0.22);
+}
+
+.o2o-tracker-box.active {
+  background: #3b2818;
+  border-color: #1c130b;
+  color: #f7ead0;
+}
+
+/* Cuerpo Central Vertical y Compacto: 38 Investigación + 16 Generales */
 .o2o-sheet-abilities-grid {
   display: grid;
-  grid-template-columns: 1fr 345px;
-  gap: 14px;
+  grid-template-columns: 1fr 252px;
+  gap: 8px;
   align-items: start;
 }
 
 .o2o-investigative-panel,
 .o2o-general-panel,
 .o2o-notes-column {
-  background: rgba(15, 20, 30, 0.9);
-  border: 1px solid #2e3a50;
-  border-radius: 10px;
-  padding: 10px 12px;
+  background: rgba(239, 227, 202, 0.52);
+  border: 1px solid #6b5135;
+  border-radius: 4px;
+  padding: 7px 8px;
 }
 
 .o2o-panel-title-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 12px;
-  font-weight: 800;
+  font-family: "Special Elite", "Courier Prime", monospace;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: #f8fafc;
-  padding-bottom: 8px;
-  margin-bottom: 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: #231911;
+  padding-bottom: 4px;
+  margin-bottom: 5px;
+  border-bottom: 1.5px solid #4a3520;
 }
 
 .o2o-cat-legend {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 10.5px;
+  gap: 5px;
+  font-family: "Courier Prime", monospace;
+  font-size: 9.5px;
   text-transform: none;
-  color: #cbd5e1;
+  color: #3b2818;
 }
 
 .o2o-inv-columns {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  gap: 5px;
 }
 
 .o2o-inv-col {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .o2o-inv-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 4px;
-  padding: 4px 6px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  transition: all 0.12s ease;
+  gap: 2px;
+  padding: 2px 3px;
+  border-bottom: 1px dotted rgba(74, 53, 32, 0.35);
 }
 
 .o2o-inv-row.is-checked {
-  background: rgba(14, 165, 233, 0.14);
-  border-color: rgba(56, 189, 248, 0.45);
+  background: rgba(120, 53, 15, 0.14);
+  border-bottom-color: #4a3520;
 }
 
 .o2o-inv-check-label {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 3px;
   cursor: pointer;
   flex: 1;
   min-width: 0;
+  margin: 0;
+}
+
+.o2o-inv-checkbox,
+.o2o-gen-stunt {
+  width: 13px !important;
+  height: 13px !important;
+  margin: 0 !important;
+  accent-color: #3b2818;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
 .o2o-inv-cat {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 3px;
-  font-size: 10px;
-  font-weight: 900;
+  width: 13px;
+  height: 13px;
+  border-radius: 2px;
+  font-size: 9px;
+  font-weight: 700;
+  border: 1px solid #4a3520;
+  background: rgba(255, 250, 240, 0.65);
+  color: #231911;
   flex-shrink: 0;
-}
-
-.o2o-inv-cat.cat-A {
-  background: rgba(59, 130, 246, 0.25);
-  border: 1px solid #60a5fa;
-  color: #93c5fd;
-}
-
-.o2o-inv-cat.cat-I {
-  background: rgba(245, 158, 11, 0.25);
-  border: 1px solid #fbbf24;
-  color: #fde68a;
-}
-
-.o2o-inv-cat.cat-T {
-  background: rgba(16, 185, 129, 0.25);
-  border: 1px solid #34d399;
-  color: #a7f3d0;
 }
 
 .o2o-inv-name {
   display: flex;
   flex-direction: column;
-  line-height: 1.15;
+  line-height: 1.05;
   min-width: 0;
 }
 
 .o2o-inv-name strong {
-  font-size: 11.5px;
-  color: #f1f5f9;
+  font-size: 10.2px;
+  color: #1c130b;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .o2o-inv-row.is-checked .o2o-inv-name strong {
-  color: #38bdf8;
+  color: #7f1d1d;
+  text-decoration: underline;
 }
 
 .o2o-inv-name small {
-  font-size: 9.5px;
-  color: #94a3b8;
+  font-size: 8.5px;
+  color: #5c452d;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1294,87 +1494,66 @@
 .o2o-inv-actions {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
   flex-shrink: 0;
 }
 
 .o2o-mini-btn {
-  padding: 2px 5px;
-  font-size: 10px;
+  padding: 1px 3px;
+  font-family: "Courier Prime", monospace;
+  font-size: 8.5px;
   font-weight: 700;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  background: #1e2636;
-  color: #cbd5e1;
+  border-radius: 2px;
+  border: 1px solid #6b5135;
+  background: rgba(255, 250, 238, 0.7);
+  color: #231911;
   cursor: pointer;
   width: auto;
-  line-height: 1.2;
+  line-height: 1.1;
 }
 
 .o2o-mini-btn:hover {
-  background: #334155;
-  color: #ffffff;
+  background: #3b2818;
+  color: #f7ead0;
 }
 
-.o2o-mini-btn.push-btn {
-  color: #fcd34d;
-  border-color: rgba(245, 158, 11, 0.35);
+/* 16 Habilidades Generales con botones 1D6 y 2D6 (Gasto del 2º dado) */
+.o2o-gen-subbar {
+  display: grid;
+  grid-template-columns: 32px 1fr 94px;
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #5c452d;
+  padding: 0 3px 3px;
+  border-bottom: 1px solid rgba(74, 53, 32, 0.35);
+  margin-bottom: 3px;
 }
 
-.o2o-mini-btn.push-btn:hover {
-  background: rgba(245, 158, 11, 0.25);
-}
-
-/* 16 Habilidades Generales */
 .o2o-gen-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .o2o-gen-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 6px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  gap: 4px;
+  padding: 2px 3px;
+  border-bottom: 1px dotted rgba(74, 53, 32, 0.35);
 }
 
 .o2o-gen-row.is-blocked {
-  background: rgba(239, 68, 68, 0.14);
-  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(153, 27, 27, 0.14);
 }
 
 .o2o-stunt-cell {
+  width: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-}
-
-.o2o-gen-dice-cell {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.o2o-dice-glyphs {
-  color: #38bdf8;
-  font-size: 12px;
-  display: inline-flex;
-  gap: 2px;
-}
-
-.o2o-gen-dice-select {
-  background: #0f131a !important;
-  border: 1px solid #334155 !important;
-  color: #f8fafc !important;
-  border-radius: 4px !important;
-  font-size: 11px !important;
-  padding: 1px 4px !important;
-  height: 22px !important;
+  margin: 0;
 }
 
 .o2o-gen-name-cell {
@@ -1382,129 +1561,114 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  cursor: pointer;
-  line-height: 1.15;
+  line-height: 1.05;
   min-width: 0;
 }
 
 .o2o-gen-name-cell strong {
   display: block;
-  font-size: 12px;
-  color: #f8fafc;
-}
-
-.o2o-gen-name-cell:hover strong {
-  color: #38bdf8;
-  text-decoration: underline;
+  font-size: 10.8px;
+  color: #1c130b;
 }
 
 .o2o-gen-name-cell small {
-  font-size: 10px;
-  color: #94a3b8;
+  font-size: 8.5px;
+  color: #5c452d;
 }
 
 .o2o-blocked-pill {
-  font-size: 9.5px;
-  font-weight: 800;
-  color: #fecaca;
-  background: rgba(220, 38, 38, 0.35);
-  border: 1px solid #ef4444;
-  padding: 1px 5px;
-  border-radius: 4px;
-  white-space: nowrap;
+  font-size: 8px;
+  font-weight: 700;
+  color: #7f1d1d;
+  border: 1px solid #7f1d1d;
+  padding: 0 3px;
+  background: rgba(127, 29, 29, 0.1);
 }
 
-.o2o-gen-roll-btn {
-  padding: 3px 8px !important;
-  font-size: 11px !important;
+.o2o-gen-dice-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  padding: 0 2px;
 }
 
-/* Pie de Ficha: 3 Trackers (0-5) + Notas */
-.o2o-sheet-bottom-grid {
-  display: grid;
-  grid-template-columns: 440px 1fr;
-  gap: 14px;
-  align-items: stretch;
+.o2o-die-icon {
+  font-size: 12px;
+  color: #231911;
 }
 
-.o2o-trackers-column {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+.o2o-die-icon.die-2.spent {
+  color: #9ca3af;
+  opacity: 0.4;
+  position: relative;
 }
 
-.o2o-tracker-card {
-  background: rgba(15, 20, 30, 0.9);
-  border: 1px solid #2e3a50;
-  border-radius: 8px;
-  padding: 8px 10px;
+.o2o-die-icon.die-2.spent::after {
+  content: "✕";
+  position: absolute;
+  inset: -2px 0 0 1px;
+  color: #991b1b;
+  font-size: 11px;
+  font-weight: 900;
 }
 
-.o2o-tracker-header {
+.o2o-gen-roll-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  font-size: 12px;
-  margin-bottom: 6px;
+  gap: 3px;
+  flex-shrink: 0;
 }
 
-.o2o-tracker-table-badge {
-  font-size: 11px;
-  background: rgba(0, 0, 0, 0.35);
-  padding: 1px 7px;
-  border-radius: 4px;
-  color: #cbd5e1;
-}
-
-.o2o-tracker-boxes {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 6px;
-}
-
-.o2o-tracker-box {
-  height: 30px;
-  border-radius: 6px;
-  border: 1px solid #334155;
-  background: #141a26;
-  color: #94a3b8;
-  font-size: 14px;
-  font-weight: 800;
+.o2o-paper-roll-btn {
+  padding: 2px 5px;
+  font-family: "Courier Prime", monospace;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 2px;
+  border: 1px solid #3b2818;
   cursor: pointer;
-  transition: all 0.12s ease;
+  width: auto;
+  line-height: 1.1;
 }
 
-.o2o-tracker-box:hover {
-  border-color: #64748b;
-  color: #ffffff;
+.o2o-paper-roll-btn.roll-1d6 {
+  background: #efe3ca;
+  color: #231911;
 }
 
-.o2o-tracker-box.filled {
-  background: rgba(255, 255, 255, 0.08);
-  color: #e2e8f0;
+.o2o-paper-roll-btn.roll-1d6:hover {
+  background: #fff8ea;
 }
 
-.o2o-tracker-box.active {
-  transform: scale(1.04);
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+.o2o-paper-roll-btn.roll-2d6 {
+  background: #3b2818;
+  color: #f7ead0;
 }
 
-.o2o-notes-column {
-  display: flex;
-  flex-direction: column;
+.o2o-paper-roll-btn.roll-2d6:hover:not(.disabled) {
+  background: #593d25;
+}
+
+.o2o-paper-roll-btn.roll-2d6.disabled {
+  background: rgba(74, 53, 32, 0.15);
+  border-color: rgba(74, 53, 32, 0.35);
+  color: #6b5135;
+  text-decoration: line-through;
+  cursor: not-allowed;
+  font-size: 9px;
 }
 
 .o2o-agent-notes-textarea {
-  flex: 1;
   width: 100%;
-  min-height: 175px;
+  min-height: 74px;
   resize: vertical;
-  line-height: 1.45;
+  line-height: 1.35;
 }
 
-@media (max-width: 980px) {
+@media (max-width: 720px) {
   .o2o-sheet-abilities-grid,
-  .o2o-sheet-bottom-grid,
+  .o2o-trackers-row,
   .o2o-sheet-top-grid {
     grid-template-columns: 1fr;
   }
