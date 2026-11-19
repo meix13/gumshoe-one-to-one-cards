@@ -1554,16 +1554,19 @@ async function onContainerActionClick(ev) {
   switch (action) {
     case "toggle-dock-minimize": {
       One2OneState.dockMinimized = !One2OneState.dockMinimized;
+      await game.settings.set(MODULE_ID, "dockMinimized", One2OneState.dockMinimized);
       renderTabletopDock();
       break;
     }
     case "toggle-dock-view": {
       One2OneState.dockExpandedView = !One2OneState.dockExpandedView;
+      await game.settings.set(MODULE_ID, "dockExpandedView", One2OneState.dockExpandedView);
       renderTabletopDock();
       break;
     }
     case "toggle-image-mode": {
       One2OneState.forceOriginalImageView = !One2OneState.forceOriginalImageView;
+      await game.settings.set(MODULE_ID, "forceOriginalImageView", One2OneState.forceOriginalImageView);
       renderTabletopDock();
       refreshGMDrawerModal();
       break;
@@ -1748,9 +1751,46 @@ async function onContainerActionClick(ev) {
 Hooks.once("init", () => {
   console.log(`${MODULE_ID} | Inicializando Sistema Táctico de Cartas GUMSHOE One-2-One`);
 
+  // Ajustes persistentes por usuario (se guardan aunque recargues o cierres Foundry)
+  game.settings.register(MODULE_ID, "forceOriginalImageView", {
+    name: "Modo Visual: Ver Carta Original PDF",
+    hint: "Si está activo, muestra el recorte original de la carta del PDF en lugar del diseño CSS en español.",
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: false,
+    onChange: (val) => {
+      One2OneState.forceOriginalImageView = Boolean(val);
+      renderTabletopDock();
+      refreshGMDrawerModal();
+    }
+  });
+
+  game.settings.register(MODULE_ID, "dockExpandedView", {
+    name: "Bandeja de Mesa: Vista Detallada",
+    hint: "Muestra la descripción narrativa y condición de descarte directamente en la bandeja inferior.",
+    scope: "client",
+    config: true,
+    type: Boolean,
+    default: true,
+    onChange: (val) => {
+      One2OneState.dockExpandedView = Boolean(val);
+      renderTabletopDock();
+    }
+  });
+
+  game.settings.register(MODULE_ID, "dockMinimized", {
+    name: "Bandeja de Mesa Minimizada",
+    scope: "client",
+    config: false,
+    type: Boolean,
+    default: false
+  });
+
   window.GumshoeOne2One = {
-    toggleDock: () => {
+    toggleDock: async () => {
       One2OneState.dockMinimized = !One2OneState.dockMinimized;
+      await game.settings.set(MODULE_ID, "dockMinimized", One2OneState.dockMinimized);
       renderTabletopDock();
     },
     openGMDrawer: () => openGMDrawerModal(),
@@ -1761,6 +1801,11 @@ Hooks.once("init", () => {
 });
 
 Hooks.once("ready", async () => {
+  // Cargar preferencias visuales guardadas del usuario
+  One2OneState.forceOriginalImageView = Boolean(game.settings.get(MODULE_ID, "forceOriginalImageView"));
+  One2OneState.dockExpandedView = Boolean(game.settings.get(MODULE_ID, "dockExpandedView"));
+  One2OneState.dockMinimized = Boolean(game.settings.get(MODULE_ID, "dockMinimized"));
+
   const stacks = await ensureCardStacks();
   // Si el mazo del GM está vacío al iniciar por primera vez, importamos automáticamente las 75 cartas de Never Say Dead
   if (game.user.isGM && stacks.deck && stacks.deck.cards.size === 0) {
