@@ -5,9 +5,47 @@
  */
 
 import { NEVER_SAY_DEAD_CARDS } from "./never-say-dead-cards.js";
+import { NO_GRAVE_FOR_TRAITORS_CARDS } from "./no-grave-for-traitors-cards.js";
+import { THE_DENIABLE_WOMAN_CARDS } from "./the-deniable-woman-cards.js";
+import { THE_BEST_OF_INTENTIONS_CARDS } from "./the-best-of-intentions-cards.js";
+import { BACKMATTER_CARDS } from "./backmatter-cards.js";
 
 const MODULE_ID = "gumshoe-one-to-one-cards";
 const SOCKET_NAME = `module.${MODULE_ID}`;
+
+/** Las 5 Barajas Oficiales de Night's Black Agents: Solo Ops (362 cartas en total) */
+const ADVENTURE_DECK_PACKS = {
+  "never-say-dead": {
+    id: "never-say-dead",
+    title: "1. Never Say Dead (Budapest — 75 cartas)",
+    shortTitle: "Never Say Dead",
+    cards: NEVER_SAY_DEAD_CARDS
+  },
+  "no-grave-for-traitors": {
+    id: "no-grave-for-traitors",
+    title: "2. No Grave for Traitors (Marruecos / Londres / Transilvania — 75 cartas)",
+    shortTitle: "No Grave for Traitors",
+    cards: NO_GRAVE_FOR_TRAITORS_CARDS
+  },
+  "the-deniable-woman": {
+    id: "the-deniable-woman",
+    title: "3. The Deniable Woman (Moscú — 58 cartas)",
+    shortTitle: "The Deniable Woman",
+    cards: THE_DENIABLE_WOMAN_CARDS
+  },
+  "the-best-of-intentions": {
+    id: "the-best-of-intentions",
+    title: "4. The Best of Intentions (Praga / Malta — 78 cartas)",
+    shortTitle: "The Best of Intentions",
+    cards: THE_BEST_OF_INTENTIONS_CARDS
+  },
+  "backmatter": {
+    id: "backmatter",
+    title: "5. Backmatter: Contactos de Red y Problemas Genéricos (76 cartas)",
+    shortTitle: "Backmatter (Genéricas)",
+    cards: BACKMATTER_CARDS
+  }
+};
 
 /** Categorías soportadas (NBA: Solo Ops + Cthulhu Confidential + Contactos) */
 const CARD_CATEGORIES = {
@@ -39,6 +77,7 @@ const One2OneState = {
   dockExpandedView: true,
   dockBounds: null, // { left, top, width, height } cuando se arrastra o redimensiona
   forceOriginalImageView: false, // Permite alternar al vuelo entre CSS en Español y Recorte Original del PDF
+  activeDeckId: "never-say-dead", // Baraja activa seleccionada por el GM entre las 5 oficiales
   gmActiveTab: "deck", // "deck" | "hand" | "discard" | "continuity"
   gmFilterType: "all", // "all" | "edge" | "problem" | "contact"
   gmFilterCategory: "all",
@@ -244,28 +283,41 @@ async function createOne2OneCard(targetStack, payload) {
   return created?.[0] || null;
 }
 
-/** Importa en lote las 75 cartas de Never Say Dead (sin duplicar si ya existen por código) */
-async function importNeverSayDeadPack() {
+/**
+ * Importa o cambia la Baraja Oficial en la Reserva del GM.
+ * @param {string} deckId Identificador de una de las 5 barajas ("never-say-dead", "no-grave-for-traitors", etc.)
+ * @param {boolean} replaceReserve Si es true, reemplaza las cartas actuales de la Reserva del GM por las de esta baraja.
+ */
+async function importAdventureDeckPack(deckId = One2OneState.activeDeckId, replaceReserve = false) {
+  const pack = ADVENTURE_DECK_PACKS[deckId] || ADVENTURE_DECK_PACKS["never-say-dead"];
   const stacks = await ensureCardStacks();
   if (!stacks.deck) return;
 
-  const existingCodes = new Set(
+  if (replaceReserve && stacks.deck.cards.size > 0) {
+    const allIds = Array.from(stacks.deck.cards.keys());
+    await stacks.deck.deleteEmbeddedDocuments("Card", allIds);
+  }
+
+  const existingKeys = new Set(
     Array.from(stacks.deck.cards.values())
-      .map(c => c.getFlag(MODULE_ID, "code"))
-      .filter(Boolean)
+      .map(c => `${c.getFlag(MODULE_ID, "sceneRef") || ""}::${c.getFlag(MODULE_ID, "code") || c.name}`)
   );
 
-  const toCreate = NEVER_SAY_DEAD_CARDS
-    .filter(item => !existingCodes.has(item.flags.code))
+  const toCreate = pack.cards
+    .filter(item => !existingKeys.has(`${item.flags.sceneRef || ""}::${item.flags.code || item.name}`))
     .map(item => buildCardDocumentData(item));
 
   if (toCreate.length === 0) {
-    ui.notifications.info("Las 75 cartas de 'Never Say Dead' ya están todas en la Reserva del GM.");
+    ui.notifications.info(`Las cartas de "${pack.shortTitle}" ya están cargadas en la Reserva del GM.`);
     return;
   }
 
   await stacks.deck.createEmbeddedDocuments("Card", toCreate);
-  ui.notifications.info(`¡Importadas ${toCreate.length} cartas oficiales de 'Never Say Dead' (48 Problemas, 21 Ventajas y 6 Contactos) en español con sus imágenes recortadas!`);
+  ui.notifications.info(`¡Baraja "${pack.shortTitle}" cargada (${toCreate.length} cartas en español con sus imágenes recortadas)!`);
+}
+
+async function importNeverSayDeadPack() {
+  return importAdventureDeckPack(One2OneState.activeDeckId || "never-say-dead", false);
 }
 
 async function transferCardBetweenStacks(cardDoc, targetStack) {
@@ -412,7 +464,7 @@ function renderCardHTML(cardDoc, context = "hand") {
   }
 
   // --- MODO 2: DISEÑO CSS PARAMÉTRICO EN ESPAÑOL ---
-  const isCroppedPdfCard = c.img.includes("never-say-dead/");
+  const isCroppedPdfCard = c.img.includes("assets/cards/");
   const showArt = c.img && !c.img.includes("playing-cards-grey.webp") && !isCroppedPdfCard;
 
   return `
@@ -744,17 +796,29 @@ function refreshGMDrawerModal() {
   const handCount = stacks.hand?.cards.size ?? 0;
   const discardCount = stacks.discard?.cards.size ?? 0;
   const contCount = stacks.continuity?.cards.size ?? 0;
+  const activePack = ADVENTURE_DECK_PACKS[One2OneState.activeDeckId] || ADVENTURE_DECK_PACKS["never-say-dead"];
 
   modal.innerHTML = `
-    <div class="o2o-modal-window" style="width: min(1220px, 96vw);">
-      <div class="o2o-modal-header">
-        <h3><i class="fas fa-briefcase" style="color:#f59e0b;"></i> Cajón del Director de Juego — GUMSHOE One-2-One (Never Say Dead)</h3>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <button type="button" class="o2o-btn o2o-btn-gm" data-action="import-never-say-dead" title="Importar las 75 cartas oficiales de Never Say Dead (48 Problemas, 21 Ventajas y 6 Contactos) traducidas y con sus recortes originales">
-            <i class="fas fa-file-import"></i> Importar 75 Cartas
-          </button>
-          <button type="button" class="o2o-btn" data-action="reset-all-to-deck" title="Devolver todas las cartas de la Mesa, Descartes y Continuidad a la Reserva del GM y reiniciar marcas">
-            <i class="fas fa-rotate-left"></i> Reiniciar Todo a Reserva
+    <div class="o2o-modal-window" style="width: min(1240px, 96vw);">
+      <div class="o2o-modal-header" style="flex-wrap:wrap; gap:10px;">
+        <h3><i class="fas fa-briefcase" style="color:#f59e0b;"></i> Cajón del GM — ${escapeHtml(activePack.shortTitle)}</h3>
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+          <div style="display:flex; align-items:center; gap:5px; background:rgba(0,0,0,0.35); padding:3px 7px; border-radius:6px; border:1px solid rgba(245,158,11,0.4);">
+            <span style="font-size:11px; font-weight:800; color:#fcd34d;"><i class="fas fa-layer-group"></i> BARAJA:</span>
+            <select class="o2o-select" id="o2o-gm-deck-select" title="Selecciona cuál de las 5 barajas oficiales de aventura quieres usar">
+              ${Object.values(ADVENTURE_DECK_PACKS).map(p => `
+                <option value="${p.id}" ${One2OneState.activeDeckId === p.id ? "selected" : ""}>${escapeHtml(p.title)}</option>
+              `).join("")}
+            </select>
+            <button type="button" class="o2o-btn o2o-btn-gm" data-action="load-selected-deck" title="Reemplazar la Reserva del GM por las cartas de la baraja seleccionada">
+              <i class="fas fa-file-import"></i> Cargar Baraja
+            </button>
+            <button type="button" class="o2o-btn" data-action="add-selected-deck" title="Añadir las cartas de esta baraja a la Reserva actual sin borrar las que ya hay (ideal para sumar Backmatter)">
+              <i class="fas fa-plus-circle"></i> + Añadir
+            </button>
+          </div>
+          <button type="button" class="o2o-btn" data-action="reset-all-to-deck" title="Devolver todas las cartas de la Mesa, Descartes y Continuidad a la Reserva del GM con la baraja activa">
+            <i class="fas fa-rotate-left"></i> Reiniciar Todo
           </button>
           <button type="button" class="o2o-btn o2o-btn-success" data-action="open-card-editor">
             <i class="fas fa-plus"></i> Crear Carta
@@ -792,7 +856,7 @@ function refreshGMDrawerModal() {
 
           <div class="o2o-gm-filters">
             <select class="o2o-select" id="o2o-gm-filter-type">
-              <option value="all" ${One2OneState.gmFilterType === "all" ? "selected" : ""}>Todos los Tipos (75)</option>
+              <option value="all" ${One2OneState.gmFilterType === "all" ? "selected" : ""}>Todos los Tipos (${allCards.length})</option>
               <option value="problem" ${One2OneState.gmFilterType === "problem" ? "selected" : ""}>👎 Problemas (Problems)</option>
               <option value="edge" ${One2OneState.gmFilterType === "edge" ? "selected" : ""}>👍 Ventajas (Edges)</option>
               <option value="contact" ${One2OneState.gmFilterType === "contact" ? "selected" : ""}>📇 Contactos (Contacts)</option>
@@ -823,19 +887,28 @@ function refreshGMDrawerModal() {
               <option value="alpha_en" ${One2OneState.gmSortMode === "alpha_en" ? "selected" : ""}>🔤 Orden: A–Z (Título Inglés)</option>
             </select>
 
-            <input type="text" class="o2o-input" id="o2o-gm-search" placeholder="Buscar ej. PROBLEM 12, EDGE 5, CONTACT 1, Sinclair..." value="${escapeHtml(One2OneState.gmSearchQuery)}" style="min-width:255px;" />
+            <input type="text" class="o2o-input" id="o2o-gm-search" placeholder="Buscar ej. PROBLEM 12, EDGE 5, CONTACT 1..." value="${escapeHtml(One2OneState.gmSearchQuery)}" style="min-width:255px;" />
           </div>
         </div>
 
         ${filtered.length > 0
           ? `<div class="o2o-gm-grid">${filtered.map(doc => renderCardHTML(doc, contextMode)).join("")}</div>`
           : `<div class="o2o-empty-table" style="padding:40px;">
-               No hay cartas en esta vista. Pulsa el botón naranja <strong>"Importar 75 Cartas: Never Say Dead"</strong> arriba a la derecha para cargar toda la aventura.
+               No hay cartas en esta vista. Selecciona una de las 5 barajas arriba y pulsa <strong>"Cargar Baraja"</strong>.
              </div>`
         }
       </div>
     </div>
   `;
+
+  modal.querySelector("#o2o-gm-deck-select")?.addEventListener("change", async (e) => {
+    const newDeckId = e.target.value;
+    One2OneState.activeDeckId = newDeckId;
+    await game.settings.set(MODULE_ID, "activeDeckId", newDeckId);
+    await importAdventureDeckPack(newDeckId, true);
+    One2OneState.gmActiveTab = "deck";
+    refreshGMDrawerModal();
+  });
 
   modal.querySelector("#o2o-gm-filter-type")?.addEventListener("change", (e) => {
     One2OneState.gmFilterType = e.target.value;
@@ -1660,35 +1733,22 @@ function showCardToast(data) {
   setTimeout(() => toast.remove(), 4200);
 }
 
-/** Reinicia toda la partida: devuelve todas las cartas de Mesa, Descartes y Continuidad a la Reserva del GM y pone sus marcas a 0 */
+/** Reinicia toda la partida: limpia Mesa, Descartes y Continuidad y recarga la baraja oficial activa en la Reserva del GM */
 async function resetAllCardsToDeck() {
   if (!game.user.isGM) return;
   const stacks = await ensureCardStacks();
   if (!stacks.deck) return;
 
-  let movedCount = 0;
   for (const sourceStack of [stacks.hand, stacks.discard, stacks.continuity]) {
     if (!sourceStack || sourceStack.cards.size === 0) continue;
-    const docs = Array.from(sourceStack.cards.values());
-    const toCreate = docs.map(d => {
-      const obj = d.toObject();
-      delete obj._id;
-      obj.drawn = false;
-      if (obj.flags?.[MODULE_ID]?.ticks) {
-        obj.flags[MODULE_ID].ticks.current = 0;
-      }
-      return obj;
-    });
-    const idsToDelete = docs.map(d => d.id);
-    await stacks.deck.createEmbeddedDocuments("Card", toCreate);
+    const idsToDelete = Array.from(sourceStack.cards.keys());
     await sourceStack.deleteEmbeddedDocuments("Card", idsToDelete);
-    movedCount += docs.length;
   }
 
-  // Asegurar también que no falte ninguna de las 75 cartas oficiales
-  await importNeverSayDeadPack();
+  await importAdventureDeckPack(One2OneState.activeDeckId, true);
   One2OneState.gmActiveTab = "deck";
-  ui.notifications.info(`Reinicio completado: ${movedCount} cartas devueltas a la Reserva del GM y marcas reiniciadas.`);
+  const activePack = ADVENTURE_DECK_PACKS[One2OneState.activeDeckId] || ADVENTURE_DECK_PACKS["never-say-dead"];
+  ui.notifications.info(`Reinicio completado: Mesa limpiada y baraja "${activePack.shortTitle}" restaurada en la Reserva del GM.`);
 }
 
 /** Crea o abre la Entrada de Diario (JournalEntry) nativa en Foundry con la Guía de Uso y Prueba completa */
@@ -2057,8 +2117,22 @@ async function onContainerActionClick(ev) {
       ui.notifications.info(`Carta eliminada.`);
       break;
     }
-    case "import-never-say-dead": {
-      await importNeverSayDeadPack();
+    case "import-never-say-dead":
+    case "load-selected-deck": {
+      const selEl = document.getElementById("o2o-gm-deck-select");
+      const chosenId = selEl?.value || One2OneState.activeDeckId || "never-say-dead";
+      One2OneState.activeDeckId = chosenId;
+      await game.settings.set(MODULE_ID, "activeDeckId", chosenId);
+      await importAdventureDeckPack(chosenId, true);
+      One2OneState.gmActiveTab = "deck";
+      refreshGMDrawerModal();
+      break;
+    }
+    case "add-selected-deck": {
+      const selEl = document.getElementById("o2o-gm-deck-select");
+      const chosenId = selEl?.value || One2OneState.activeDeckId || "never-say-dead";
+      await importAdventureDeckPack(chosenId, false);
+      One2OneState.gmActiveTab = "deck";
       refreshGMDrawerModal();
       break;
     }
@@ -3198,6 +3272,26 @@ Hooks.once("init", () => {
     default: "alpha_es"
   });
 
+  game.settings.register(MODULE_ID, "activeDeckId", {
+    name: "Baraja Oficial Activa (NBA: Solo Ops)",
+    hint: "Selecciona cuál de las 5 barajas oficiales está activa en la Reserva del GM.",
+    scope: "world",
+    config: true,
+    type: String,
+    choices: {
+      "never-say-dead": "1. Never Say Dead (75 cartas)",
+      "no-grave-for-traitors": "2. No Grave for Traitors (75 cartas)",
+      "the-deniable-woman": "3. The Deniable Woman (58 cartas)",
+      "the-best-of-intentions": "4. The Best of Intentions (78 cartas)",
+      "backmatter": "5. Backmatter: Contactos y Problemas Genéricos (76 cartas)"
+    },
+    default: "never-say-dead",
+    onChange: (val) => {
+      One2OneState.activeDeckId = val || "never-say-dead";
+      refreshGMDrawerModal();
+    }
+  });
+
   window.GumshoeOne2One = {
     toggleDock: async () => {
       One2OneState.dockHidden = !One2OneState.dockHidden;
@@ -3209,6 +3303,7 @@ Hooks.once("init", () => {
     openCardEditor: () => openCardEditorModal(null),
     openChallengeRoller: () => openChallengeRollerModal(),
     openAgentSheet: (actor) => openAgentSheetModal(actor),
+    importAdventureDeck: (deckId, replace = true) => importAdventureDeckPack(deckId, replace),
     importNeverSayDead: () => importNeverSayDeadPack()
   };
 });
@@ -3226,11 +3321,12 @@ Hooks.once("ready", async () => {
   One2OneState.dockMinimized = Boolean(game.settings.get(MODULE_ID, "dockMinimized"));
   One2OneState.dockHidden = Boolean(game.settings.get(MODULE_ID, "dockHidden"));
   One2OneState.gmSortMode = game.settings.get(MODULE_ID, "gmSortMode") || "alpha_es";
+  One2OneState.activeDeckId = game.settings.get(MODULE_ID, "activeDeckId") || "never-say-dead";
 
   const stacks = await ensureCardStacks();
-  // Si el mazo del GM está vacío al iniciar por primera vez, importamos automáticamente las 75 cartas de Never Say Dead
+  // Si el mazo del GM está vacío al iniciar por primera vez, importamos automáticamente la baraja activa
   if (game.user.isGM && stacks.deck && stacks.deck.cards.size === 0) {
-    await importNeverSayDeadPack();
+    await importAdventureDeckPack(One2OneState.activeDeckId, true);
   }
   if (game.user.isGM) {
     await ensureLeylaKhanActor();
