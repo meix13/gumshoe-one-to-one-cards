@@ -40,6 +40,7 @@ const One2OneState = {
   gmActiveTab: "deck", // "deck" | "hand" | "discard" | "continuity"
   gmFilterType: "all", // "all" | "edge" | "problem" | "contact"
   gmFilterCategory: "all",
+  gmSortMode: "alpha_es", // "alpha_es" | "alpha_en" | "code_num"
   gmSearchQuery: "",
   activeChallenge: null
 };
@@ -581,6 +582,28 @@ function refreshGMDrawerModal() {
     return true;
   });
 
+  // Ordenación automática (Alfabética por título en Español, Inglés o por Nº de Código oficial)
+  const cleanSpanishTitle = (name) => String(name || "").replace(/^(PROBLEM|EDGE|CONTACT)\s+\d+\s*[—\-:]\s*/i, "").trim();
+  filtered.sort((docA, docB) => {
+    const a = getCardData(docA);
+    const b = getCardData(docB);
+    if (One2OneState.gmSortMode === "code_num") {
+      // Orden natural: PROBLEM 1, PROBLEM 2... EDGE 1... CONTACT 1...
+      const keyA = a.code || a.name;
+      const keyB = b.code || b.name;
+      return keyA.localeCompare(keyB, "es", { numeric: true, sensitivity: "base" });
+    }
+    if (One2OneState.gmSortMode === "alpha_en") {
+      const enA = a.originalName || cleanSpanishTitle(a.name);
+      const enB = b.originalName || cleanSpanishTitle(b.name);
+      return enA.localeCompare(enB, "en", { numeric: true, sensitivity: "base" });
+    }
+    // Por defecto: "alpha_es" (Alfabético A-Z por nombre en español)
+    const esA = cleanSpanishTitle(a.name);
+    const esB = cleanSpanishTitle(b.name);
+    return esA.localeCompare(esB, "es", { numeric: true, sensitivity: "base" });
+  });
+
   const contextMode = One2OneState.gmActiveTab === "deck"
     ? "gm-deck"
     : (One2OneState.gmActiveTab === "hand" ? "hand" : "gm-pile");
@@ -659,6 +682,12 @@ function refreshGMDrawerModal() {
               </optgroup>
             </select>
 
+            <select class="o2o-select" id="o2o-gm-sort" title="Criterio de ordenación de las cartas">
+              <option value="alpha_es" ${One2OneState.gmSortMode === "alpha_es" ? "selected" : ""}>🔤 Orden: A–Z (Título Español)</option>
+              <option value="code_num" ${One2OneState.gmSortMode === "code_num" ? "selected" : ""}>🔢 Orden: Nº Oficial (PROBLEM 1, 2...)</option>
+              <option value="alpha_en" ${One2OneState.gmSortMode === "alpha_en" ? "selected" : ""}>🔤 Orden: A–Z (Título Inglés)</option>
+            </select>
+
             <input type="text" class="o2o-input" id="o2o-gm-search" placeholder="Buscar ej. PROBLEM 12, EDGE 5, CONTACT 1, Sinclair..." value="${escapeHtml(One2OneState.gmSearchQuery)}" style="min-width:255px;" />
           </div>
         </div>
@@ -679,6 +708,11 @@ function refreshGMDrawerModal() {
   });
   modal.querySelector("#o2o-gm-filter-cat")?.addEventListener("change", (e) => {
     One2OneState.gmFilterCategory = e.target.value;
+    refreshGMDrawerModal();
+  });
+  modal.querySelector("#o2o-gm-sort")?.addEventListener("change", async (e) => {
+    One2OneState.gmSortMode = e.target.value;
+    await game.settings.set(MODULE_ID, "gmSortMode", One2OneState.gmSortMode);
     refreshGMDrawerModal();
   });
   modal.querySelector("#o2o-gm-search")?.addEventListener("input", (e) => {
@@ -1787,6 +1821,14 @@ Hooks.once("init", () => {
     default: false
   });
 
+  game.settings.register(MODULE_ID, "gmSortMode", {
+    name: "Cajón GM: Orden de las Cartas",
+    scope: "client",
+    config: false,
+    type: String,
+    default: "alpha_es"
+  });
+
   window.GumshoeOne2One = {
     toggleDock: async () => {
       One2OneState.dockMinimized = !One2OneState.dockMinimized;
@@ -1805,6 +1847,7 @@ Hooks.once("ready", async () => {
   One2OneState.forceOriginalImageView = Boolean(game.settings.get(MODULE_ID, "forceOriginalImageView"));
   One2OneState.dockExpandedView = Boolean(game.settings.get(MODULE_ID, "dockExpandedView"));
   One2OneState.dockMinimized = Boolean(game.settings.get(MODULE_ID, "dockMinimized"));
+  One2OneState.gmSortMode = game.settings.get(MODULE_ID, "gmSortMode") || "alpha_es";
 
   const stacks = await ensureCardStacks();
   // Si el mazo del GM está vacío al iniciar por primera vez, importamos automáticamente las 75 cartas de Never Say Dead
