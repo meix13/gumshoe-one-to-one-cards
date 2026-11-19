@@ -680,9 +680,6 @@ function renderTabletopDock() {
           <i class="fas ${One2OneState.dockExpandedView ? "fa-compress-alt" : "fa-expand-alt"}"></i>
           ${One2OneState.dockExpandedView ? "Compactar" : "Detallar"}
         </button>
-        <button type="button" class="o2o-btn" data-action="open-guide-journal" title="Abrir Diario con la Guía de Uso y Prueba paso a paso">
-          <i class="fas fa-book-open"></i> Guía
-        </button>
         ${One2OneState.dockBounds ? `
           <button type="button" class="o2o-btn" data-action="reset-dock-position" title="Restaurar posición y tamaño original del panel">
             <i class="fas fa-arrows-to-dot"></i>
@@ -829,9 +826,6 @@ function refreshGMDrawerModal() {
           </button>
           <button type="button" class="o2o-btn o2o-btn-danger" data-action="end-operation-wizard" title="Evaluar Doom, mover Continuity y limpiar mesa al concluir el escenario">
             <i class="fas fa-flag-checkered"></i> Fin de Operación
-          </button>
-          <button type="button" class="o2o-btn" data-action="open-guide-journal" title="Abrir Diario con la Guía de Uso y Prueba">
-            <i class="fas fa-book-open"></i> Guía
           </button>
           <button type="button" class="o2o-btn" data-action="close-gm-drawer"><i class="fas fa-times"></i></button>
         </div>
@@ -1751,114 +1745,6 @@ async function resetAllCardsToDeck() {
   ui.notifications.info(`Reinicio completado: Mesa limpiada y baraja "${activePack.shortTitle}" restaurada en la Reserva del GM.`);
 }
 
-/** Crea o abre la Entrada de Diario (JournalEntry) nativa en Foundry con la Guía de Uso y Prueba completa */
-async function ensureGuideJournalEntry(openSheet = false) {
-  let journal = game.journal?.find(j => j.getFlag(MODULE_ID, "isGuideJournal") === true);
-
-  const guideHTML = `
-    <h2>🎬 Guía de Uso y Prueba: Módulo GUMSHOE One-2-One (Never Say Dead)</h2>
-    <p>Este diario ha sido generado automáticamente por el módulo <strong>GUMSHOE One-2-One: Sistema Táctico de Cartas y Retos</strong>. Tanto el Director de Juego (GM) como el Jugador pueden abrirlo en cualquier momento pulsando el botón <strong>📖 Guía</strong> de la bandeja inferior.</p>
-    <hr/>
-    <h3>🏥 Escena 1: Despertar en el Hospital de Budapest (Cajón GM y Entrega de Cartas)</h3>
-    <ol>
-      <li><strong>Como GM:</strong> En la bandeja inferior, pulsa el botón naranja <strong>Cajón GM</strong>. Verás la pestaña <strong>Reserva del GM (75)</strong> con todas las cartas oficiales de <em>Never Say Dead</em>.</li>
-      <li><strong>Ordenación y Filtros:</strong> Usa el desplegable de ordenación para ver las cartas por <strong>🔤 Orden: A–Z (Título Español)</strong>, <strong>🔢 Nº Oficial (PROBLEM 1, 2...)</strong> o <strong>🔤 A–Z (Título Inglés)</strong>. La elección queda guardada automáticamente.</li>
-      <li><strong>Entregar cartas iniciales:</strong> Busca y pulsa <strong>Entregar a Mesa</strong> en:
-        <ul>
-          <li><code>PROBLEM 1 — Apaleada (Beaten Up)</code></li>
-          <li><code>PROBLEM 2 — Con lo Puesto (Running on Empty)</code></li>
-          <li><code>PROBLEM 5 — Deberíamos Sedarla (We Should Sedate Her)</code></li>
-          <li><code>EDGE 1 — La Iglesia (The Church)</code>, <code>EDGE 4 — Jeringuilla de Propofol</code> y <code>CONTACT 1 — Magdalena Halmi, Enfermera</code>.</li>
-        </ul>
-      </li>
-      <li><strong>En la pantalla del Jugador:</strong> Aparece una notificación superior con la imagen de la carta, se registra en el Chat y se coloca en su bandeja de mesa (Ventajas y Contactos a la izquierda, Problemas a la derecha).</li>
-    </ol>
-
-    <h3>🔍 Escena 2: Inspección y Doble Modo Visual (Español CSS ⇄ Carta Original PDF)</h3>
-    <ul>
-      <li><strong>Alternar Modo Visual:</strong> Pulsa el botón <strong>Ver Carta PDF</strong> / <strong>Ver Español CSS</strong> en la bandeja o en el Cajón GM para cambiar entre el diseño oscuro traducido al español y el recorte original en inglés del PDF. Tu preferencia se guarda automáticamente aunque cierres o recargues Foundry.</li>
-      <li><strong>Ampliar / Lupa (🔍):</strong> Haz clic en el título o en la lupa de cualquier carta para ver <strong>arriba la imagen original recortada del PDF</strong> y <strong>debajo toda su traducción al español</strong> (incluyendo Habilidades de Investigación y Generales en los Contactos).</li>
-      <li><strong>Resolver o Gastar Cartas:</strong> El jugador puede pulsar <strong>✔ Resolver</strong> en un Problema superado o <strong>⚡ Gastar</strong> en una Ventaja para enviarla a la pila de Descartes y anunciarlo en el Chat.</li>
-    </ul>
-
-    <h3>🎲 Escena 3: Cómo lanza o prepara un Reto el GM y el Jugador (Botón Lanzar Reto)</h3>
-    <p>El botón azul <strong>🎲 Lanzar Reto</strong> de la bandeja inferior permite resolver Retos tanto al Jugador como al GM:</p>
-    <ul>
-      <li><strong>Modo A — El GM prepara el Reto a mano y se lo envía al Jugador:</strong>
-        <ol>
-          <li>El GM pulsa <strong>🎲 Lanzar Reto</strong> en su bandeja.</li>
-          <li>Escribe el nombre en <em>Habilidad / Acción del Reto</em> (ej. <code>Pelea - Guardias de Sinclair</code> o <code>Atletismo - Escapar de las ataduras</code>).</li>
-          <li>Indica los <strong>Dados Base (d6)</strong> del agente y ajusta a mano los umbrales de dificultad según la escena: <strong>ADVANCE</strong> (ej. <code>6+</code> o <code>7+</code>), <strong>HOLD</strong> (ej. <code>4</code> a <code>5</code>) y <strong>SETBACK</strong> (<code>3 o menos</code>).</li>
-          <li>Marca o desmarca qué <strong>Problemas activos en la mesa</strong> penalizan esta tirada (soporta tanto penalizadores numéricos como <code>-1</code>/<code>-2</code> como penalizadores de dados <code>-1d6</code>/<code>-2d6</code>).</li>
-          <li>Pulsa el botón naranja <strong>📤 Enviar Reto Preparado al Jugador</strong>: la ventana del Reto se abre automáticamente en la pantalla del Jugador con todo ya configurado para que tire los dados.</li>
-        </ol>
-      </li>
-      <li><strong>Modo B — El GM lanza y resuelve el Reto él mismo a mano:</strong>
-        <p>El GM configura esos mismos campos en su ventana de <strong>🎲 Lanzar Reto</strong>, tira los dados directamente con <strong>Tirar Siguiente Dado (1d6)</strong> o <strong>Tirar Todos los Restantes</strong> y pulsa <strong>Publicar Resultado del Reto en el Chat</strong>.</p>
-      </li>
-      <li><strong>Tirada Progresiva (Dado a Dado), Gastar Ventajas y Push:</strong>
-        <ul>
-          <li>Puedes tirar los dados uno por uno (<strong>Tirar Siguiente Dado 1d6</strong>).</li>
-          <li><strong>A mitad de la tirada</strong>, tras ver el primer dado, puedes pulsar <strong>⚡ Gastar (+1d6)</strong> en una Ventaja disponible o marcar <strong>Aceptar Problema Extra (+1d6)</strong> para sumar dados extra a la reserva.</li>
-          <li>Si alcanzas el umbral de <strong>Advance</strong> dejando al menos 1 dado sin tirar, el sistema detecta y anuncia automáticamente que <strong>¡GANAS 1 PUSH!</strong>.</li>
-        </ul>
-      </li>
-    </ul>
-
-    <h3>🕵️‍♀️ Escena 4: Ficha Interactiva de Agente (Leyla Khan — NBA: Solo Ops)</h3>
-    <ul>
-      <li><strong>Abrir o Crear a Leyla Khan con 1 clic (👤 Ficha Agente):</strong> Pulsa el botón <strong>👤 Ficha Agente</strong> en la bandeja inferior (o en la barra lateral de controles de escena). El módulo crea automáticamente el Actor <strong>Leyla Khan</strong> con su retrato original recortado y sus 17 Habilidades de Investigación iniciales ya marcadas.</li>
-      <li><strong>Como Hoja Adicional en cualquier Actor:</strong> También se registra como hoja de personaje en Foundry (<em>GUMSHOE One-2-One: Ficha de Agente (NBA: Solo Ops)</em>) y añade un botón rápido <strong>Ficha 1-2-1</strong> en la barra superior de cualquier Actor.</li>
-      <li><strong>38 Habilidades de Investigación (A / I / T):</strong> Puedes activar o desactivar casillas, pulsar <strong>🔍 Pista</strong> para anunciar una investigación en el Chat o pulsar <strong>⚡ Push</strong> para gastar 1 Push de tu reserva y anunciarlo en el Chat.</li>
-      <li><strong>16 Habilidades Generales conectadas al Lanzador de Retos:</strong> Marca la casilla <strong>STUNT USE</strong> (Maniobra Especial), ajusta tus dados base (por defecto <code>2d6 ⚀⚁</code>) y haz clic en cualquier Habilidad General (o en su botón <strong>🎲 Reto</strong>) para abrir directamente el <strong>Lanzador Táctico de Retos</strong> con esa habilidad y sus dados cargados. Si tienes en mesa <code>PROBLEM 2 — Con lo Puesto</code>, la ficha avisa automáticamente de que <em>Preparación (Preparedness)</em> y <em>Disparo (Shooting)</em> están bloqueadas.</li>
-      <li><strong>Medidores Oficiales (Heat, Injury y Shadow Tracker 0–5):</strong> Haz clic en cualquier casilla de <code>0</code> a <code>5</code> o pulsa <strong>🔄 Sincronizar con Mesa</strong> para igualar los medidores al número de cartas activas de tipo <em>Heat</em>, <em>Injury</em> y <em>Shadow</em> en la mesa.</li>
-    </ul>
-
-    <h3>🎯 Escena 5: Marcas (Ticks), Contramedidas (Counter) y Creación Rápida</h3>
-    <ul>
-      <li><strong>Marcas Interactivas (Ticks):</strong> Cartas como <code>PROBLEM 32 — En el Punto de Mira (The Drop)</code> muestran casillas <code>MARCAS (0/3)</code> con botones <code>-</code> y <code>+</code> sincronizados en vivo. Al llegar al máximo, publican un aviso en el Chat.</li>
-      <li><strong>Contramedida (Counter):</strong> Si tienes en mesa <code>PROBLEM 45 — Asalto Psíquico</code> y la ventaja <code>EDGE 11 — El Frasco de Agua de Rosas</code>, al pulsar <strong>🛡️ Anular</strong> en la ventaja se neutraliza y descarta automáticamente el problema objetivo.</li>
-      <li><strong>Improvisar Carta (+ Crear Carta):</strong> El GM puede crear nuevas cartas en mitad de la partida (eligiendo diseño CSS o imagen completa) y guardarlas en su Reserva o entregarlas directamente a la mesa.</li>
-    </ul>
-
-    <h3>🔄 Gestión de Errores, Reinicio Completo y Fin de Operación</h3>
-    <ul>
-      <li><strong>Deshacer entrega si bajas una carta a la mesa por error (📦 Reserva):</strong> En cualquier carta que esté en la mesa del jugador, el GM tiene el botón <strong>📦 Reserva</strong> para retirarla inmediatamente de la mesa y devolverla a la Reserva del GM en silencio.</li>
-      <li><strong>Reiniciar toda la partida (🔄 Reiniciar Todo a Reserva):</strong> En la cabecera del <strong>Cajón GM</strong>, este botón devuelve todas las cartas de la Mesa, Descartes y Continuidad a la Reserva del GM, pone todas las marcas (Ticks) a <code>0</code> y restaura las 75 cartas oficiales.</li>
-      <li><strong>Fin de Operación (🏁 Fin de Operación):</strong> Al terminar el escenario, evalúa las cartas que sigan en la mesa: lanza una alerta crítica si queda alguna carta <strong>DOOM</strong> sin resolver (como <code>PROBLEM 20 — Desangrándose</code>), mueve las cartas con etiqueta <strong>Continuidad</strong> al Archivo de Continuidad para la siguiente aventura y limpia el resto de la mesa.</li>
-    </ul>
-  `;
-
-  if (!journal && game.user.isGM) {
-    journal = await JournalEntry.create({
-      name: "📘 Guía de Uso: GUMSHOE One-2-One (Never Say Dead)",
-      ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OBSERVER },
-      flags: { [MODULE_ID]: { isGuideJournal: true } },
-      pages: [
-        {
-          name: "Guía Paso a Paso (GM y Jugador)",
-          type: "text",
-          text: { content: guideHTML, format: 1 }
-        }
-      ]
-    });
-  } else if (journal && game.user.isGM) {
-    const firstPage = journal.pages?.contents?.[0];
-    if (firstPage && !firstPage.text?.content?.includes("Ficha Interactiva de Agente")) {
-      await firstPage.update({ "text.content": guideHTML });
-    }
-  }
-
-  if (openSheet) {
-    if (journal) {
-      journal.sheet.render(true);
-    } else {
-      ui.notifications.warn("El GM aún no ha inicializado el Diario de la Guía.");
-    }
-  }
-  return journal;
-}
-
 async function runEndOfOperationWizard() {
   if (!game.user.isGM) return;
   const stacks = await ensureCardStacks();
@@ -2143,10 +2029,6 @@ async function onContainerActionClick(ev) {
     }
     case "end-operation-wizard": {
       await runEndOfOperationWizard();
-      break;
-    }
-    case "open-guide-journal": {
-      await ensureGuideJournalEntry(true);
       break;
     }
     case "open-agent-sheet": {
@@ -3329,9 +3211,10 @@ Hooks.once("ready", async () => {
     await importAdventureDeckPack(One2OneState.activeDeckId, true);
   }
   if (game.user.isGM) {
+    const oldGuide = game.journal?.find(j => j.getFlag(MODULE_ID, "isGuideJournal") === true);
+    if (oldGuide) await oldGuide.delete();
     await ensureLeylaKhanActor();
   }
-  await ensureGuideJournalEntry(false);
   renderTabletopDock();
 
   game.socket.on(SOCKET_NAME, async (data) => {
