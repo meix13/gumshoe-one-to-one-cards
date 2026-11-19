@@ -1,8 +1,8 @@
 {
   "id": "gumshoe-one-to-one-cards",
   "title": "GUMSHOE One-2-One: Sistema Táctico de Cartas y Retos (NBA: Solo Ops)",
-  "description": "Sistema completo de cartas (Problemas, Ventajas y Contactos) y lanzador táctico de Retos para GUMSHOE One-2-One (Night's Black Agents: Solo Ops, Cthulhu Confidential). Incluye las 75 cartas oficiales de la aventura 'Never Say Dead' traducidas al español y con sus imágenes originales recortadas.",
-  "version": "1.1.0",
+  "description": "Sistema completo de cartas (Problemas, Ventajas y Contactos), ficha interactiva de Agente (Leyla Khan) y lanzador táctico de Retos para GUMSHOE One-2-One (Night's Black Agents: Solo Ops, Cthulhu Confidential). Incluye las 75 cartas oficiales de la aventura 'Never Say Dead' traducidas al español y con sus imágenes originales recortadas.",
+  "version": "1.2.0",
   "compatibility": {
     "minimum": "12",
     "verified": "13",
