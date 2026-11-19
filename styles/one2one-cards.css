@@ -1,0 +1,892 @@
+/* ==========================================================================
+   GUMSHOE ONE-2-ONE: SISTEMA DE CARTAS Y RETOS (Foundry VTT v12-v14)
+   Soporta Modo Paramétrico (CSS) y Modo Imagen Completa (Full Image)
+   ========================================================================== */
+
+:root {
+  --o2o-bg-dark: rgba(14, 17, 23, 0.95);
+  --o2o-bg-panel: #151922;
+  --o2o-bg-card: #1c222e;
+  --o2o-border-base: #323b4f;
+  --o2o-text-main: #e8ecf2;
+  --o2o-text-muted: #9aa5b8;
+
+  /* Colores por tipo y categoría */
+  --o2o-edge-luck: #10b981;
+  --o2o-edge-mastery: #0ea5e9;
+  --o2o-edge-counter: #f59e0b;
+  --o2o-edge-generic: #22c55e;
+
+  --o2o-prob-injury: #ef4444;
+  --o2o-prob-heat: #f97316;
+  --o2o-prob-shadow: #a855f7;
+  --o2o-prob-shock: #eab308;
+  --o2o-prob-trouble: #ec4899;
+  --o2o-prob-mythos: #8b5cf6;
+  --o2o-prob-generic: #dc2626;
+  --o2o-contact-color: #eab308;
+}
+
+/* ==========================================================================
+   1. TABLETOP DOCK (HUD PERSISTENTE EN MESA)
+   ========================================================================== */
+#one2one-tabletop-dock {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1080px, calc(100vw - 380px));
+  min-width: 560px;
+  background: var(--o2o-bg-dark);
+  border: 1px solid var(--o2o-border-base);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  color: var(--o2o-text-main);
+  font-family: "Signika", "Segoe UI", sans-serif;
+  z-index: 65;
+  backdrop-filter: blur(10px);
+  transition: all 0.25s ease;
+  overflow: hidden;
+}
+
+#one2one-tabletop-dock.is-minimized {
+  width: auto;
+  min-width: 340px;
+}
+
+#one2one-tabletop-dock.is-minimized .o2o-dock-body {
+  display: none;
+}
+
+/* Cabecera del Dock */
+.o2o-dock-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 14px;
+  background: linear-gradient(90deg, #1b2230 0%, #12161f 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  gap: 12px;
+  user-select: none;
+}
+
+.o2o-dock-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #f1f5f9;
+}
+
+.o2o-dock-brand i {
+  color: #38bdf8;
+  font-size: 15px;
+}
+
+.o2o-dock-counters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.o2o-pill-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.o2o-pill-count.edge {
+  background: rgba(16, 185, 129, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  color: #34d399;
+}
+
+.o2o-pill-count.problem {
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  color: #f87171;
+}
+
+.o2o-pill-count.contact {
+  background: rgba(234, 179, 8, 0.18);
+  border: 1px solid rgba(234, 179, 8, 0.45);
+  color: #fde047;
+}
+
+.o2o-pill-count.doom-alert {
+  background: rgba(220, 38, 38, 0.35);
+  border: 1px solid #ef4444;
+  color: #fecaca;
+  animation: o2o-pulse-doom 2s infinite;
+}
+
+@keyframes o2o-pulse-doom {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5); }
+  50% { box-shadow: 0 0 10px 2px rgba(239, 68, 68, 0.85); }
+}
+
+.o2o-dock-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.o2o-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #232b3a;
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  width: auto;
+  line-height: 1.3;
+}
+
+.o2o-btn:hover {
+  background: #2f3a4f;
+  border-color: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.o2o-btn-challenge {
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+
+.o2o-btn-challenge:hover {
+  background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+}
+
+.o2o-btn-gm {
+  background: linear-gradient(135deg, #b45309 0%, #92400e 100%);
+  border-color: #f59e0b;
+  color: #fef3c7;
+}
+
+.o2o-btn-gm:hover {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+}
+
+.o2o-btn-success {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  border-color: #10b981;
+  color: #ffffff;
+}
+
+.o2o-btn-danger {
+  background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+  border-color: #f87171;
+  color: #ffffff;
+}
+
+/* Cuerpo del Dock: 2 Columnas (Ventajas vs Problemas) */
+.o2o-dock-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 10px 14px 12px;
+  max-height: 330px;
+  overflow-y: auto;
+}
+
+.o2o-dock-zone {
+  background: rgba(11, 14, 20, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.o2o-dock-zone.zone-edges {
+  border-top: 2px solid #10b981;
+}
+
+.o2o-dock-zone.zone-problems {
+  border-top: 2px solid #ef4444;
+}
+
+.o2o-zone-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--o2o-text-muted);
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.o2o-zone-title.edges-title { color: #34d399; }
+.o2o-zone-title.problems-title { color: #f87171; }
+
+.o2o-cards-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+  gap: 8px;
+}
+
+#one2one-tabletop-dock.view-expanded .o2o-cards-row {
+  grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
+}
+
+.o2o-empty-table {
+  font-size: 12px;
+  color: #64748b;
+  font-style: italic;
+  text-align: center;
+  padding: 16px 8px;
+}
+
+/* ==========================================================================
+   2. DISEÑO VISUAL DE LA CARTA (PARAMÉTRICO Y FULL-IMAGE)
+   ========================================================================== */
+.o2o-card {
+  position: relative;
+  background: var(--o2o-bg-card);
+  border: 2px solid var(--o2o-border-base);
+  border-radius: 9px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.o2o-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.65);
+}
+
+/* Colores de borde según categoría */
+.o2o-card[data-category="luck"] { border-color: var(--o2o-edge-luck); }
+.o2o-card[data-category="mastery"] { border-color: var(--o2o-edge-mastery); }
+.o2o-card[data-category="counter"] { border-color: var(--o2o-edge-counter); }
+.o2o-card[data-category="generic"][data-card-type="edge"] { border-color: var(--o2o-edge-generic); }
+
+.o2o-card[data-category="injury"] { border-color: var(--o2o-prob-injury); }
+.o2o-card[data-category="heat"] { border-color: var(--o2o-prob-heat); }
+.o2o-card[data-category="shadow"] { border-color: var(--o2o-prob-shadow); }
+.o2o-card[data-category="shock"] { border-color: var(--o2o-prob-shock); }
+.o2o-card[data-category="trouble"] { border-color: var(--o2o-prob-trouble); }
+.o2o-card[data-category="mythos"] { border-color: var(--o2o-prob-mythos); }
+.o2o-card[data-category="contact"] { border-color: var(--o2o-contact-color); }
+
+.o2o-card.has-doom {
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.55);
+}
+
+/* --- MODO IMAGEN COMPLETA (FULL IMAGE) --- */
+.o2o-card.mode-fullImage {
+  min-height: 230px;
+  background-size: cover;
+  background-position: center;
+}
+
+#one2one-tabletop-dock:not(.view-expanded) .o2o-card.mode-fullImage {
+  min-height: 165px;
+}
+
+.o2o-card-fullimg-media {
+  width: 100%;
+  height: 205px;
+  object-fit: contain;
+  display: block;
+  cursor: zoom-in;
+  background: #f1f5f9;
+  padding: 4px;
+}
+
+#one2one-tabletop-dock:not(.view-expanded) .o2o-card-fullimg-media {
+  height: 145px;
+}
+
+.o2o-card-fullimg-overlay {
+  background: linear-gradient(180deg, rgba(12, 15, 22, 0.75) 0%, rgba(12, 15, 22, 0.96) 100%);
+  padding: 6px 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* --- MODO PARAMÉTRICO (CSS) --- */
+.o2o-card-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  background: rgba(0, 0, 0, 0.35);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.o2o-card[data-category="luck"] .o2o-card-banner { background: rgba(16, 185, 129, 0.22); color: #6ee7b7; }
+.o2o-card[data-category="mastery"] .o2o-card-banner { background: rgba(14, 165, 233, 0.22); color: #7dd3fc; }
+.o2o-card[data-category="counter"] .o2o-card-banner { background: rgba(245, 158, 11, 0.22); color: #fcd34d; }
+.o2o-card[data-category="injury"] .o2o-card-banner { background: rgba(239, 68, 68, 0.25); color: #fca5a5; }
+.o2o-card[data-category="heat"] .o2o-card-banner { background: rgba(249, 115, 22, 0.25); color: #fdba74; }
+.o2o-card[data-category="shadow"] .o2o-card-banner { background: rgba(168, 85, 247, 0.25); color: #d8b4fe; }
+.o2o-card[data-category="shock"] .o2o-card-banner { background: rgba(234, 179, 8, 0.25); color: #fde047; }
+.o2o-card[data-category="trouble"] .o2o-card-banner { background: rgba(236, 72, 153, 0.25); color: #f9a8d4; }
+.o2o-card[data-category="mythos"] .o2o-card-banner { background: rgba(139, 92, 246, 0.25); color: #c4b5fd; }
+
+.o2o-card-art {
+  width: 100%;
+  height: 92px;
+  object-fit: cover;
+  display: block;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+#one2one-tabletop-dock:not(.view-expanded) .o2o-card-art {
+  height: 62px;
+}
+
+.o2o-card-content {
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+}
+
+.o2o-card-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.o2o-card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.o2o-card-title:hover {
+  text-decoration: underline;
+  color: #38bdf8;
+}
+
+.o2o-mod-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  white-space: nowrap;
+}
+
+.o2o-card-desc {
+  font-size: 11.5px;
+  color: var(--o2o-text-muted);
+  font-style: italic;
+  margin: 0;
+  line-height: 1.35;
+}
+
+#one2one-tabletop-dock:not(.view-expanded) .o2o-card-desc,
+#one2one-tabletop-dock:not(.view-expanded) .o2o-card-clear {
+  display: none;
+}
+
+.o2o-card-effect {
+  font-size: 11.5px;
+  background: rgba(0, 0, 0, 0.3);
+  border-left: 3px solid #38bdf8;
+  padding: 4px 7px;
+  border-radius: 3px;
+  color: #e2e8f0;
+  line-height: 1.3;
+}
+
+.o2o-card[data-card-type="problem"] .o2o-card-effect {
+  border-left-color: #f87171;
+}
+
+.o2o-card-clear {
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed rgba(255, 255, 255, 0.16);
+  padding: 4px 7px;
+  border-radius: 4px;
+  color: #cbd5e1;
+  line-height: 1.3;
+}
+
+/* Etiquetas Especiales (Continuity, Doom, Duration, Scene) */
+.o2o-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.o2o-tag {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.4px;
+}
+
+.o2o-tag.tag-duration {
+  background: rgba(148, 163, 184, 0.16);
+  color: #cbd5e1;
+}
+
+.o2o-tag.tag-continuity {
+  background: rgba(245, 158, 11, 0.22);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  color: #fcd34d;
+}
+
+.o2o-tag.tag-doom {
+  background: rgba(220, 38, 38, 0.35);
+  border: 1px solid #ef4444;
+  color: #fecaca;
+}
+
+.o2o-tag.tag-counter {
+  background: rgba(14, 165, 233, 0.22);
+  border: 1px solid rgba(14, 165, 233, 0.5);
+  color: #7dd3fc;
+}
+
+.o2o-tag.tag-scene {
+  background: rgba(99, 102, 241, 0.2);
+  color: #a5b4fc;
+}
+
+/* Barra interactiva de Ticks (Marcas) */
+.o2o-ticks-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 4px 7px;
+  border-radius: 5px;
+  margin-top: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.o2o-ticks-boxes {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.o2o-tick-box {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  border: 1px solid #94a3b8;
+  background: rgba(255, 255, 255, 0.05);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.o2o-tick-box.filled {
+  background: #f97316;
+  border-color: #fdba74;
+  color: #fff;
+  box-shadow: 0 0 6px rgba(249, 115, 22, 0.6);
+}
+
+.o2o-ticks-controls {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.o2o-tick-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: #273042;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.o2o-tick-btn:hover {
+  background: #3b4963;
+}
+
+/* Pie de acciones de la carta */
+.o2o-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 5px 8px;
+  background: rgba(0, 0, 0, 0.38);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.o2o-card-footer .o2o-btn {
+  padding: 3px 7px;
+  font-size: 11px;
+}
+
+/* ==========================================================================
+   3. MODALES Y CAJÓN DEL DIRECTOR DE JUEGO (GM DRAWER / EDITOR / RETOS)
+   ========================================================================== */
+.o2o-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 8, 14, 0.72);
+  backdrop-filter: blur(4px);
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.o2o-modal-window {
+  background: var(--o2o-bg-panel);
+  border: 1px solid #3b475e;
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.85);
+  color: var(--o2o-text-main);
+  font-family: "Signika", "Segoe UI", sans-serif;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.o2o-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: linear-gradient(90deg, #1e2636 0%, #141923 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.o2o-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #f8fafc;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+}
+
+.o2o-modal-body {
+  padding: 16px 18px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.o2o-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 18px;
+  background: #10141d;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* GM Drawer Grid & Filters */
+.o2o-gm-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.o2o-gm-tabs {
+  display: flex;
+  gap: 6px;
+}
+
+.o2o-tab-btn {
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #1d2432;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.o2o-tab-btn.active {
+  background: #0284c7;
+  border-color: #38bdf8;
+  color: #ffffff;
+}
+
+.o2o-gm-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.o2o-input,
+.o2o-select,
+.o2o-textarea {
+  background: #0f131a !important;
+  border: 1px solid #334155 !important;
+  border-radius: 6px !important;
+  color: #f1f5f9 !important;
+  padding: 6px 10px !important;
+  font-size: 12.5px !important;
+  font-family: inherit !important;
+}
+
+.o2o-input:focus,
+.o2o-select:focus,
+.o2o-textarea:focus {
+  border-color: #38bdf8 !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.25) !important;
+}
+
+.o2o-gm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
+  gap: 12px;
+}
+
+/* Formulario de Creación / Edición de Carta */
+.o2o-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.o2o-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.o2o-form-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.o2o-form-group label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #cbd5e1;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.o2o-filepicker-row {
+  display: flex;
+  gap: 6px;
+}
+
+.o2o-filepicker-row .o2o-input {
+  flex: 1;
+}
+
+/* ==========================================================================
+   4. LANZADOR TÁCTICO DE RETOS (CHALLENGE ROLLER)
+   ========================================================================== */
+.o2o-challenge-box {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.o2o-thresholds-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.o2o-thresh-card {
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.o2o-thresh-card.advance {
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(16, 185, 129, 0.45);
+}
+
+.o2o-thresh-card.hold {
+  background: rgba(14, 165, 233, 0.14);
+  border-color: rgba(14, 165, 233, 0.45);
+}
+
+.o2o-thresh-card.setback {
+  background: rgba(239, 68, 68, 0.14);
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+.o2o-dice-tray {
+  background: #0d1118;
+  border: 1px solid #2b3548;
+  border-radius: 10px;
+  padding: 14px;
+  text-align: center;
+}
+
+.o2o-dice-list {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 10px 0;
+}
+
+.o2o-die-slot {
+  width: 46px;
+  height: 46px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  font-weight: 800;
+  border: 2px solid #475569;
+  background: #1e293b;
+  color: #f8fafc;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+}
+
+.o2o-die-slot.rolled {
+  background: linear-gradient(135deg, #0284c7 0%, #1e3a8a 100%);
+  border-color: #38bdf8;
+}
+
+.o2o-die-slot.unrolled {
+  border-style: dashed;
+  color: #64748b;
+  font-size: 16px;
+}
+
+.o2o-outcome-banner {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-weight: 700;
+  text-align: center;
+  font-size: 14px;
+}
+
+.o2o-outcome-banner.advance {
+  background: rgba(16, 185, 129, 0.25);
+  border: 1px solid #10b981;
+  color: #6ee7b7;
+}
+
+.o2o-outcome-banner.hold {
+  background: rgba(14, 165, 233, 0.25);
+  border: 1px solid #0ea5e9;
+  color: #7dd3fc;
+}
+
+.o2o-outcome-banner.setback {
+  background: rgba(239, 68, 68, 0.25);
+  border: 1px solid #ef4444;
+  color: #fca5a5;
+}
+
+/* ==========================================================================
+   5. TARJETAS EN EL CHAT DE FOUNDRY Y NOTIFICACIÓN EN PANTALLA
+   ========================================================================== */
+.o2o-chat-card {
+  background: #151a24;
+  border: 2px solid #334155;
+  border-radius: 8px;
+  padding: 10px;
+  color: #e2e8f0;
+  font-family: "Signika", sans-serif;
+}
+
+.o2o-chat-card.edge { border-color: #10b981; }
+.o2o-chat-card.problem { border-color: #ef4444; }
+.o2o-chat-card.challenge { border-color: #38bdf8; }
+
+.o2o-chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 800;
+  font-size: 13px;
+  text-transform: uppercase;
+  padding-bottom: 6px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.o2o-toast-banner {
+  position: fixed;
+  top: 75px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  background: rgba(15, 19, 28, 0.96);
+  border: 2px solid #38bdf8;
+  border-radius: 10px;
+  padding: 12px 22px;
+  color: #fff;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  animation: o2o-slide-down 0.3s ease-out;
+}
+
+@keyframes o2o-slide-down {
+  from { opacity: 0; transform: translate(-50%, -25px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
