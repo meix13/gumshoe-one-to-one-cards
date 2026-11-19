@@ -37,7 +37,7 @@
   left: 50%;
   transform: translateX(-50%);
   width: min(1080px, calc(100vw - 380px));
-  min-width: 520px;
+  min-width: 320px;
   background: var(--o2o-bg-dark);
   border: 1px solid var(--o2o-border-base);
   border-radius: 12px;
@@ -127,19 +127,21 @@
 /* Cabecera del Dock */
 .o2o-dock-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   padding: 7px 14px;
   background: linear-gradient(90deg, #1b2230 0%, #12161f 100%);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  gap: 12px;
+  gap: 8px 12px;
   user-select: none;
 }
 
 .o2o-dock-brand {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 8px 10px;
   font-weight: 700;
   font-size: 13px;
   letter-spacing: 0.6px;
@@ -154,8 +156,9 @@
 
 .o2o-dock-counters {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   font-size: 12px;
 }
 
@@ -201,6 +204,7 @@
 
 .o2o-dock-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px;
 }
@@ -1364,7 +1368,7 @@
 /* Cuerpo Central Vertical y Compacto: 38 Investigación + 16 Generales */
 .o2o-sheet-abilities-grid {
   display: grid;
-  grid-template-columns: 1fr 252px;
+  grid-template-columns: minmax(0, 1fr) 256px;
   gap: 8px;
   align-items: start;
 }
@@ -1376,6 +1380,7 @@
   border: 1px solid #6b5135;
   border-radius: 4px;
   padding: 7px 8px;
+  min-width: 0;
 }
 
 .o2o-panel-title-bar {
@@ -1404,14 +1409,16 @@
 
 .o2o-inv-columns {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 5px;
+  min-width: 0;
 }
 
 .o2o-inv-col {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .o2o-inv-row {
@@ -1421,6 +1428,7 @@
   gap: 2px;
   padding: 2px 3px;
   border-bottom: 1px dotted rgba(74, 53, 32, 0.35);
+  min-width: 0;
 }
 
 .o2o-inv-row.is-checked {
@@ -1621,15 +1629,20 @@
 }
 
 .o2o-paper-roll-btn {
-  padding: 2px 5px;
+  width: 32px;
+  height: 20px;
+  padding: 0;
   font-family: "Courier Prime", monospace;
   font-size: 10px;
   font-weight: 700;
   border-radius: 2px;
   border: 1px solid #3b2818;
   cursor: pointer;
-  width: auto;
-  line-height: 1.1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 .o2o-paper-roll-btn.roll-1d6 {
@@ -1653,10 +1666,11 @@
 .o2o-paper-roll-btn.roll-2d6.disabled {
   background: rgba(74, 53, 32, 0.15);
   border-color: rgba(74, 53, 32, 0.35);
-  color: #6b5135;
+  color: #7f1d1d;
   text-decoration: line-through;
+  text-decoration-thickness: 2px;
   cursor: not-allowed;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .o2o-agent-notes-textarea {

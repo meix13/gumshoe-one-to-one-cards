@@ -462,7 +462,7 @@ function applyDockBounds(dockEl) {
     dockEl.style.transform = "translateX(-50%)";
   }
 
-  if (b && typeof b.width === "number" && b.width >= 480) {
+  if (b && typeof b.width === "number" && b.width >= 320) {
     dockEl.style.width = `${Math.min(window.innerWidth - 20, b.width)}px`;
   } else {
     dockEl.style.width = "";
@@ -520,7 +520,7 @@ function attachDockDragAndResize(dockEl) {
         One2OneState.dockBounds.left = Math.max(0, Math.min(window.innerWidth - 180, startRect.left + dx));
         One2OneState.dockBounds.top = Math.max(0, Math.min(window.innerHeight - 54, startRect.top + dy));
       } else if (mode === "resize") {
-        One2OneState.dockBounds.width = Math.max(520, Math.min(window.innerWidth - startRect.left - 8, startRect.width + dx));
+        One2OneState.dockBounds.width = Math.max(320, Math.min(window.innerWidth - startRect.left - 8, startRect.width + dx));
         if (!One2OneState.dockMinimized) {
           One2OneState.dockBounds.height = Math.max(180, Math.min(window.innerHeight - startRect.top - 8, startRect.height + dy));
         }
@@ -609,9 +609,6 @@ function renderTabletopDock() {
       </div>
 
       <div class="o2o-dock-actions">
-        <button type="button" class="o2o-btn o2o-btn-agent" data-action="open-agent-sheet" title="Abrir Expediente / Ficha de Agente">
-          <i class="fas fa-user-secret"></i> Ficha Agente
-        </button>
         ${game.user.isGM ? `
           <button type="button" class="o2o-btn" data-action="create-new-agent" title="Crear una ficha nueva de Agente en blanco para rellenar a mano">
             <i class="fas fa-user-plus"></i> + Agente
@@ -2360,7 +2357,11 @@ async function createNewCustomAgentActor() {
 
   ui.notifications.info(`Ficha en blanco "${newName}" creada. Marca sus habilidades de investigación y edita su nombre y retrato.`);
   if (actor) {
-    await openAgentSheetModal(actor);
+    if (actor.sheet) {
+      actor.sheet.render(true);
+    } else {
+      await openAgentSheetModal(actor);
+    }
   }
   return actor;
 }
@@ -2446,7 +2447,7 @@ function buildAgentSheetInnerHTML(actorDoc) {
               1d6
             </button>
             <button type="button" class="o2o-paper-roll-btn roll-2d6 ${isSpent ? "disabled" : ""}" data-sheet-action="roll-general-2d6" data-gen-id="${g.id}" ${isSpent ? "disabled" : ""} title="${isSpent ? "Ya has gastado el 2º dado en esta habilidad. Pulsa 'Descansar' para recuperarlo." : `Tirar 2D6 en ${escapeHtml(g.es)} (Gasta el 2º dado de esta habilidad)`}">
-              ${isSpent ? "2º Gastado" : "2d6"}
+              2d6
             </button>
           </div>
         </div>
@@ -2486,16 +2487,6 @@ function buildAgentSheetInnerHTML(actorDoc) {
       <div class="o2o-dossier-topbar">
         <div class="o2o-dossier-stamp">CONFIDENTIAL // DOSSIER DE INVESTIGACIÓN</div>
         <div class="o2o-dossier-top-actions">
-          ${allAgents.length > 1 ? `
-            <select class="o2o-paper-select o2o-switch-agent-select" title="Cambiar entre fichas de Agente creadas">
-              ${allAgents.map(a => `<option value="${a.id}" ${a.id === actorDoc?.id ? "selected" : ""}>📁 ${escapeHtml(a.name)}</option>`).join("")}
-            </select>
-          ` : ""}
-          ${game.user.isGM ? `
-            <button type="button" class="o2o-paper-btn" data-sheet-action="create-new-agent" title="Crear una ficha nueva de Agente en blanco para rellenar a mano">
-              <i class="fas fa-user-plus"></i> + Nueva Ficha
-            </button>
-          ` : ""}
           <button type="button" class="o2o-paper-btn rest-btn" data-sheet-action="rest-recover-dice" title="Descansar: Recupera todos los segundos dados (2d6) gastados en las Habilidades Generales">
             <i class="fas fa-mug-hot"></i> Descansar ${spentSecondDiceCount > 0 ? `(${spentSecondDiceCount})` : ""}
           </button>
@@ -2935,7 +2926,7 @@ function renderAgentSheetModalContent(actorDoc = null) {
   const actor = actorDoc || (modal.dataset.actorId ? game.actors?.get(modal.dataset.actorId) : null) || getActiveAgentActorSync();
 
   modal.innerHTML = `
-    <div class="o2o-modal-window o2o-agent-modal-window" style="width: min(760px, 95vw); max-height: 92vh;">
+    <div class="o2o-modal-window o2o-agent-modal-window" style="width: min(1020px, 96vw); max-height: 92vh;">
       <div class="o2o-modal-header o2o-dossier-modal-header">
         <h3>
           <i class="fas fa-folder-open"></i>
@@ -2990,7 +2981,7 @@ function registerOne2OneActorSheet() {
         static DEFAULT_OPTIONS = {
           classes: ["o2o-actor-sheet-app"],
           position: {
-            width: 760,
+            width: 1020,
             height: 860
           },
           window: {
@@ -3014,6 +3005,17 @@ function registerOne2OneActorSheet() {
         _replaceHTML(result, content, _options) {
           content.replaceChildren(result);
         }
+
+        async _onRender(context, options) {
+          if (super._onRender) await super._onRender(context, options);
+          if (!this._initialSizeGuaranteed) {
+            this._initialSizeGuaranteed = true;
+            const currentW = this.position?.width || this.element?.getBoundingClientRect()?.width || 0;
+            if (currentW > 0 && currentW < 960 && typeof this.setPosition === "function") {
+              this.setPosition({ width: 1020 });
+            }
+          }
+        }
       }
 
       ActorsCollection.registerSheet(MODULE_ID, GumshoeOne2OneActorSheet, {
@@ -3028,7 +3030,7 @@ function registerOne2OneActorSheet() {
         static get defaultOptions() {
           return foundry.utils.mergeObject(super.defaultOptions, {
             classes: ["o2o-actor-sheet-app"],
-            width: 760,
+            width: 1020,
             height: 860,
             resizable: true
           });
@@ -3060,6 +3062,82 @@ function registerOne2OneActorSheet() {
     console.warn(`${MODULE_ID} | Aviso al registrar ActorSheet adicional:`, err);
   }
 }
+
+/* ==========================================================================
+   INTERCEPTOR DEL DIÁLOGO NATIVO DE "CREAR ACTOR" DE FOUNDRY VTT
+   Añade "Expediente Agente GUMSHOE One-2-One" al desplegable de Tipo al crear un Actor
+   ========================================================================== */
+let _pendingOne2OneActorCreation = false;
+
+function injectOne2OneTypeIntoCreateActorForm(rootNode) {
+  if (!rootNode || !(rootNode instanceof HTMLElement)) return;
+  const selects = rootNode.matches?.('select[name="type"]')
+    ? [rootNode]
+    : Array.from(rootNode.querySelectorAll?.('select[name="type"]') || []);
+
+  for (const select of selects) {
+    if (select.dataset.o2oInjected === "true") continue;
+    const form = select.closest("form");
+    if (!form) continue;
+
+    // Comprobar si las opciones del select pertenecen a tipos de Actor del sistema (ej. pc, npc, party, character)
+    const optionValues = Array.from(select.options).map(o => o.value);
+    const actorTypes = Object.keys(CONFIG.Actor?.dataModels || { pc: {}, npc: {}, character: {} });
+    const isActorCreateSelect = optionValues.some(v => actorTypes.includes(v) || v === "pc" || v === "character");
+    if (!isActorCreateSelect) continue;
+
+    select.dataset.o2oInjected = "true";
+
+    const opt = document.createElement("option");
+    opt.value = "one2one_agent";
+    opt.textContent = "Expediente Agente GUMSHOE One-2-One";
+    select.appendChild(opt);
+
+    const prepareSubmitIfOne2One = () => {
+      if (select.value === "one2one_agent") {
+        _pendingOne2OneActorCreation = true;
+        select.value = getValidSystemActorType();
+      }
+    };
+
+    form.addEventListener("submit", prepareSubmitIfOne2One, true);
+    form.querySelectorAll('button[type="submit"], button[data-action="ok"], button.default').forEach(btn => {
+      btn.addEventListener("mousedown", prepareSubmitIfOne2One, true);
+      btn.addEventListener("click", prepareSubmitIfOne2One, true);
+    });
+  }
+}
+
+function setupCreateActorDialogObserver() {
+  const observer = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      for (const added of m.addedNodes) {
+        if (added instanceof HTMLElement) {
+          injectOne2OneTypeIntoCreateActorForm(added);
+        }
+      }
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
+Hooks.on("preCreateActor", (doc, data) => {
+  if (_pendingOne2OneActorCreation || data?.type === "one2one_agent") {
+    _pendingOne2OneActorCreation = false;
+    const sheetClassId = `${MODULE_ID}.GumshoeOne2OneActorSheet`;
+    const validType = getValidSystemActorType();
+    const actorName = doc.name || data?.name || "Nuevo Agente";
+    doc.updateSource({
+      type: validType,
+      img: (doc.img && !doc.img.includes("mystery-man")) ? doc.img : DEFAULT_AGENT_PORTRAIT_PATH,
+      ownership: { default: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },
+      "flags.core.sheetClass": sheetClassId,
+      [`flags.${MODULE_ID}.isOne2OneAgent`]: true,
+      [`flags.${MODULE_ID}.isLeylaKhan`]: false,
+      [`flags.${MODULE_ID}.agentData`]: buildBlankAgentData(actorName)
+    });
+  }
+});
 
 /* ==========================================================================
    HOOKS DE FOUNDRY VTT (v12 - v14)
@@ -3141,6 +3219,7 @@ Hooks.once("setup", () => {
 
 Hooks.once("ready", async () => {
   registerOne2OneActorSheet();
+  setupCreateActorDialogObserver();
   // Cargar preferencias visuales guardadas del usuario
   One2OneState.forceOriginalImageView = Boolean(game.settings.get(MODULE_ID, "forceOriginalImageView"));
   One2OneState.dockExpandedView = Boolean(game.settings.get(MODULE_ID, "dockExpandedView"));
