@@ -83,11 +83,12 @@
   display: none !important;
 }
 
-/* Botón fijo en la barra de herramientas izquierda para mostrar/ocultar la Mesa One-2-One */
+/* Botón lanzador centrado abajo para mostrar/ocultar la Mesa One-2-One (despeja la barra izquierda para cámaras/jugadores) */
 #one2one-toolbar-launcher {
   position: fixed;
-  left: 12px;
-  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 12px;
   z-index: 70;
   display: flex;
   align-items: center;
