@@ -2399,11 +2399,11 @@ function buildAgentSheetInnerHTML(actorDoc) {
             <span class="o2o-die-icon die-2 ${isSpent ? "spent" : "ready"}"><i class="fas fa-dice-two"></i></span>
           </div>
           <div class="o2o-gen-roll-actions">
-            <button type="button" class="o2o-paper-roll-btn roll-1d6" data-sheet-action="roll-general-1d6" data-gen-id="${g.id}" title="Tirar 1D6 en ${escapeHtml(g.es)} (No gasta el 2º dado)">
+            <button type="button" class="o2o-paper-roll-btn roll-1d6" data-sheet-action="roll-general-1d6" data-gen-id="${g.id}" title="Tirar 1D6 base en ${escapeHtml(g.es)} (No gasta el 2º dado)">
               1d6
             </button>
-            <button type="button" class="o2o-paper-roll-btn roll-2d6 ${isSpent ? "disabled" : ""}" data-sheet-action="roll-general-2d6" data-gen-id="${g.id}" ${isSpent ? "disabled" : ""} title="${isSpent ? "Ya has gastado el 2º dado en esta habilidad. Pulsa 'Descansar' para recuperarlo." : `Tirar 2D6 en ${escapeHtml(g.es)} (Gasta el 2º dado de esta habilidad)`}">
-              2d6
+            <button type="button" class="o2o-paper-roll-btn roll-2d6 ${isSpent ? "disabled" : ""}" data-sheet-action="roll-general-2d6" data-gen-id="${g.id}" ${isSpent ? "disabled" : ""} title="${isSpent ? "Ya has gastado el 2º dado en esta habilidad. Pulsa 'Descansar' para recuperarlo." : `Gastar el 2º dado y tirar 1D6 extra en ${escapeHtml(g.es)}`}">
+              +1d6
             </button>
           </div>
         </div>
@@ -2735,7 +2735,7 @@ function bindAgentSheetEvents(containerEl, actorDoc) {
           return;
         }
 
-        const roll = await (new Roll("2d6")).evaluate();
+        const roll = await (new Roll("1d6")).evaluate();
         if (game.dice3d) await game.dice3d.showForRoll(roll, game.user, true);
         const terms = roll.dice?.[0]?.results?.map(r => r.result) || [roll.total];
 
@@ -2750,7 +2750,7 @@ function bindAgentSheetEvents(containerEl, actorDoc) {
             <div class="o2o-chat-card challenge" style="border-color:#d97706;">
               <div class="o2o-chat-header" style="color:#fbbf24;">
                 <span><i class="fas fa-dice"></i> ${escapeHtml(g.es)} (${escapeHtml(g.en)})</span>
-                <span>2D6 (2º DADO GASTADO)</span>
+                <span>1D6 EXTRA (2º DADO GASTADO)</span>
               </div>
               <div style="font-size:13px; line-height:1.45;">
                 <div><strong>Agente:</strong> ${escapeHtml(data.agentName)}</div>
